@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Auto-Plot-Layout",
+    "slug": "Auto-Plot-Layout",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.ironmanmadhu.AutoPlotLayout"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3aa6ee2a-f253-45c8-8820-891191317658"
+      }
+    },
+    "owner": "ironmanmadhu"
+  }
+}
