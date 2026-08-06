@@ -200,9 +200,9 @@ export function checkAyaVyayaYoni(width, length) {
   }
   
   // Standard Vastu Aya Vyaya calculations
-  const aya = (area * 8) % 12;
-  const vyaya = (area * 9) % 10;
-  const yoni = (area * 8) % 8 || 8;
+  const aya = (area * 8) % 12 || 12;
+  const vyaya = (area * 9) % 10 || 10;
+  const yoni = (area * 3) % 8 || 8;
   
   // Yoni translation map
   const yoniMap = {
@@ -229,9 +229,9 @@ export function checkAyaVyayaYoni(width, length) {
   while (alternatives.length < 3) {
     const newL = l + addedSize;
     const newArea = Math.round(w * newL);
-    const newAya = (newArea * 8) % 12;
-    const newVy = (newArea * 9) % 10;
-    const newYo = (newArea * 8) % 8 || 8;
+    const newAya = (newArea * 8) % 12 || 12;
+    const newVy = (newArea * 9) % 10 || 10;
+    const newYo = (newArea * 3) % 8 || 8;
     
     if (newAya > newVy && newYo % 2 !== 0) {
       alternatives.push({
@@ -280,4 +280,73 @@ export function generateBuildingSize(siteLength, siteWidth, eastOpen, westOpen, 
     width: bW,
     area: bL * bW
   };
+}
+
+export function calculateOptimalRoomDimensions(rooms, siteLength, siteWidth, eastOpen, westOpen, northOpen, southOpen) {
+  if (!Array.isArray(rooms) || rooms.length === 0) return rooms;
+  
+  const sL = parseFloat(siteLength) || 0;
+  const sW = parseFloat(siteWidth) || 0;
+  const eO = parseFloat(eastOpen) || 0;
+  const wO = parseFloat(westOpen) || 0;
+  const nO = parseFloat(northOpen) || 0;
+  const sO = parseFloat(southOpen) || 0;
+  
+  const bL = Math.max(12, sL - nO - sO);
+  const bW = Math.max(12, sW - eO - wO);
+  const totalArea = bL * bW;
+  
+  const getRoomWeight = (name) => {
+    const n = (name || "").toLowerCase();
+    if (n.includes("living") || n.includes("hall") || n.includes("drawing") || n.includes("master")) return 1.5;
+    if (n.includes("bedroom") || n.includes("guest") || n.includes("dining")) return 1.2;
+    if (n.includes("kitchen") || n.includes("study") || n.includes("office") || n.includes("gym")) return 1.0;
+    if (n.includes("pooja") || n.includes("store") || n.includes("toilet") || n.includes("bathroom") || n.includes("bath")) return 0.6;
+    return 1.0;
+  };
+  
+  const totalWeight = rooms.reduce((sum, r) => sum + getRoomWeight(r.name), 0) || 1;
+  
+  return rooms.map(room => {
+    const weight = getRoomWeight(room.name);
+    const targetArea = (weight / totalWeight) * (totalArea * 0.85);
+    
+    let bestW = 8;
+    let bestL = 8;
+    let minDiff = Infinity;
+    
+    const minDim = weight <= 0.6 ? 4 : (weight >= 1.5 ? 9 : 6);
+    const maxW = Math.min(Math.floor(bW), weight <= 0.6 ? 10 : 25);
+    const maxL = Math.min(Math.floor(bL), weight <= 0.6 ? 10 : 25);
+    
+    for (let w = minDim; w <= maxW; w++) {
+      for (let l = minDim; l <= maxL; l++) {
+        const ratio = l / w;
+        if (ratio < 0.6 || ratio > 1.7) continue;
+        
+        const res = checkAyaVyayaYoni(w, l);
+        if (res.status === 'success') {
+          const area = w * l;
+          const diff = Math.abs(area - targetArea);
+          if (diff < minDiff) {
+            minDiff = diff;
+            bestW = w;
+            bestL = l;
+          }
+        }
+      }
+    }
+    
+    if (minDiff === Infinity) {
+      const side = Math.max(4, Math.min(Math.floor(bW), Math.round(Math.sqrt(targetArea))));
+      bestW = side;
+      bestL = Math.max(side, Math.min(Math.floor(bL), Math.round(targetArea / side)));
+    }
+    
+    return {
+      ...room,
+      width: String(bestW),
+      length: String(bestL)
+    };
+  });
 }

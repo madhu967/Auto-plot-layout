@@ -684,9 +684,41 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
     reservedCells.push(`1,2`); // Reserve East cell for Dining
   }
 
+  // Prioritize Master Bedroom Attached Washroom assignment to guarantee it adjoins Master Bedroom (SW 2,0)
+  const isBathroomType = (name) => {
+    if (!name) return false;
+    const n = name.toLowerCase();
+    return n.includes("toilet") || n.includes("bathroom") || n.includes("wc") || n.includes("washroom") || n.includes("bath");
+  };
+  
+  let designatedAttachedBathId = null;
+  const allBathrooms = otherRooms.filter(r => isBathroomType(r.name));
+  if (masterBed && allBathrooms.length >= 2) {
+    const masterAttachedBath = allBathrooms.find(b => b.name.toLowerCase().includes("master") || b.name.toLowerCase().includes("attached")) || allBathrooms[1] || allBathrooms[allBathrooms.length - 1];
+    if (masterAttachedBath) {
+      designatedAttachedBathId = masterAttachedBath.id;
+      const parsedBath = {
+        id: masterAttachedBath.id,
+        name: masterAttachedBath.name,
+        reqW: parseFloat(masterAttachedBath.width) || 10,
+        reqH: parseFloat(masterAttachedBath.length) || 10,
+      };
+      // Assign directly to South (2,1) or West (1,0) adjacent to Master Bed (2,0)
+      if (!reservedCells.includes("2,1") && grid[2][1].length === 0) {
+        grid[2][1].push(parsedBath);
+      } else if (!reservedCells.includes("1,0") && grid[1][0].length === 0) {
+        grid[1][0].push(parsedBath);
+      } else {
+        // If adjacent cells are full or reserved, place inside SW (2,0) together with Master Bedroom
+        grid[2][0].push(parsedBath);
+      }
+    }
+  }
+
   // Allocate other private rooms (Bedrooms, Toilets) to NW, W, S, N
-  const otherPrivate = otherRooms.filter(r => isPrivateRoom(r.name));
-  const otherPublic = otherRooms.filter(r => !isPrivateRoom(r.name));
+  const remainingOtherRooms = otherRooms.filter(r => r.id !== designatedAttachedBathId);
+  const otherPrivate = remainingOtherRooms.filter(r => isPrivateRoom(r.name));
+  const otherPublic = remainingOtherRooms.filter(r => !isPrivateRoom(r.name));
 
   // Fallback cell allocator to prevent any room from being discarded/missing
   const assignToFewestRoomsCell = (parsed) => {
@@ -1046,25 +1078,34 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
   const doors = [];
   const hallBlock = roomPlacements.find(b => b.id === hallBlockId);
 
-  // Attached Toilet designated resolver (if >= 2 bathrooms, attach the one closest to Master Bedroom)
-  const bathrooms = roomPlacements.filter(r => r.name.toLowerCase().includes("toilet") || r.name.toLowerCase().includes("bathroom") || r.name.toLowerCase().includes("wc"));
+  // Attached Toilet designated resolver (if >= 2 bathrooms, attach the designated one to Master Bedroom)
+  const isBathType = (name) => {
+    if (!name) return false;
+    const n = name.toLowerCase();
+    return n.includes("toilet") || n.includes("bathroom") || n.includes("wc") || n.includes("washroom") || n.includes("bath");
+  };
+  const bathrooms = roomPlacements.filter(r => isBathType(r.name));
   const masterBedRoom = roomPlacements.find(r => r.name.toLowerCase().includes("master"));
   
   let attachedBathId = null;
-  if (bathrooms.length >= 2 && masterBedRoom) {
-    let minDistance = Infinity;
-    let closestBath = null;
-    bathrooms.forEach(bath => {
-      const dx = (bath.x + bath.w/2) - (masterBedRoom.x + masterBedRoom.w/2);
-      const dy = (bath.y + bath.h/2) - (masterBedRoom.y + masterBedRoom.h/2);
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      if (dist < minDistance) {
-        minDistance = dist;
-        closestBath = bath;
+  if (masterBedRoom && bathrooms.length >= 2) {
+    if (typeof designatedAttachedBathId !== 'undefined' && designatedAttachedBathId && bathrooms.some(b => b.id === designatedAttachedBathId)) {
+      attachedBathId = designatedAttachedBathId;
+    } else {
+      let minDistance = Infinity;
+      let closestBath = null;
+      bathrooms.forEach(bath => {
+        const dx = (bath.x + bath.w/2) - (masterBedRoom.x + masterBedRoom.w/2);
+        const dy = (bath.y + bath.h/2) - (masterBedRoom.y + masterBedRoom.h/2);
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestBath = bath;
+        }
+      });
+      if (closestBath) {
+        attachedBathId = closestBath.id;
       }
-    });
-    if (closestBath) {
-      attachedBathId = closestBath.id;
     }
   }
 
@@ -1077,64 +1118,57 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
 
     // 1. Check if this is the designated Master attached bathroom
     if (b.id === attachedBathId && masterBedRoom) {
-      // Connect directly to Master Bedroom based on adjacency
-      if (Math.abs((b.x + b.w) - masterBedRoom.x) < 0.1) { // Toilet on Left, Bed on Right
-        doors.push({
-          id: `door-attached-${b.id}`,
-          x: b.x + b.w,
-          y: b.y + b.h / 2,
-          type: 'vertical',
-          wallSide: 'right',
-          isBathroom: true
-        });
-        doorPlaced = true;
-      } else if (Math.abs(b.x - (masterBedRoom.x + masterBedRoom.w)) < 0.1) { // Toilet on Right, Bed on Left
-        doors.push({
-          id: `door-attached-${b.id}`,
-          x: b.x,
-          y: b.y + b.h / 2,
-          type: 'vertical',
-          wallSide: 'left',
-          isBathroom: true
-        });
-        doorPlaced = true;
-      } else if (Math.abs((b.y + b.h) - masterBedRoom.y) < 0.1) { // Toilet on Top, Bed on Bottom
-        doors.push({
-          id: `door-attached-${b.id}`,
-          x: b.x + b.w / 2,
-          y: b.y + b.h,
-          type: 'horizontal',
-          wallSide: 'bottom',
-          isBathroom: true
-        });
-        doorPlaced = true;
-      } else if (Math.abs(b.y - (masterBedRoom.y + masterBedRoom.h)) < 0.1) { // Toilet on Bottom, Bed on Top
-        doors.push({
-          id: `door-attached-${b.id}`,
-          x: b.x + b.w / 2,
-          y: b.y,
-          type: 'horizontal',
-          wallSide: 'top',
-          isBathroom: true
-        });
-        doorPlaced = true;
+      // Connect directly to Master Bedroom based on relative position
+      const dx = (b.x + b.w / 2) - (masterBedRoom.x + masterBedRoom.w / 2);
+      const dy = (b.y + b.h / 2) - (masterBedRoom.y + masterBedRoom.h / 2);
+
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        if (dx > 0) { // Toilet is to the right of Master Bed (e.g., South cell vs SW cell)
+          doors.push({
+            id: `door-attached-${b.id}`,
+            x: b.x,
+            y: b.y + b.h / 2,
+            type: 'vertical',
+            wallSide: 'left',
+            isBathroom: true
+          });
+        } else { // Toilet is to the left of Master Bed
+          doors.push({
+            id: `door-attached-${b.id}`,
+            x: b.x + b.w,
+            y: b.y + b.h / 2,
+            type: 'vertical',
+            wallSide: 'right',
+            isBathroom: true
+          });
+        }
       } else {
-        // Fallback attached placement
-        doors.push({
-          id: `door-attached-fallback-${b.id}`,
-          x: b.x + b.w / 2,
-          y: b.y + b.h,
-          type: 'horizontal',
-          wallSide: 'bottom',
-          isBathroom: true
-        });
-        doorPlaced = true;
+        if (dy < 0) { // Toilet is above Master Bed (e.g., West cell vs SW cell)
+          doors.push({
+            id: `door-attached-${b.id}`,
+            x: b.x + b.w / 2,
+            y: b.y + b.h,
+            type: 'horizontal',
+            wallSide: 'bottom',
+            isBathroom: true
+          });
+        } else { // Toilet is below Master Bed
+          doors.push({
+            id: `door-attached-${b.id}`,
+            x: b.x + b.w / 2,
+            y: b.y,
+            type: 'horizontal',
+            wallSide: 'top',
+            isBathroom: true
+          });
+        }
       }
+      doorPlaced = true;
       return; // Skip normal corridor door placement
     }
 
     // 2. Standard independent doors opening directly to Hall / Corridor
-    const isBath = b.name.toLowerCase().includes("toilet") || b.name.toLowerCase().includes("bathroom") || b.name.toLowerCase().includes("wc");
+    const isBath = isBathType(b.name);
     
     if (r === 0 && c === 0) { // NW
       doors.push({

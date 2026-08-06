@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -12,7 +12,7 @@ import {
   Image
 } from 'react-native';
 import { lightTheme as staticTheme } from '../constants/theme';
-import { NAKSHATRAS } from '../constants/vastuData';
+import { NAKSHATRAS, calculateOptimalRoomDimensions } from '../constants/vastuData';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -47,6 +47,33 @@ export default function InputModule({ language, state, updateState, theme: propT
   const isTe = language === 'te';
   const [sliderIndex, setSliderIndex] = useState(0);
   const sliderWidth = SCREEN_WIDTH - 32;
+
+  // Automatically calculate optimal, Vastu-compliant room dimensions when footprint or room count changes
+  useEffect(() => {
+    if (state.customRooms && state.customRooms.length > 0) {
+      const optimizedRooms = calculateOptimalRoomDimensions(
+        state.customRooms,
+        state.siteLength,
+        state.siteWidth,
+        state.eastOpen,
+        state.westOpen,
+        state.northOpen,
+        state.southOpen
+      );
+      const hasChanged = optimizedRooms.some((r, idx) => r.width !== state.customRooms[idx]?.width || r.length !== state.customRooms[idx]?.length);
+      if (hasChanged) {
+        updateState('customRooms', optimizedRooms);
+      }
+    }
+  }, [
+    state.siteLength, 
+    state.siteWidth, 
+    state.eastOpen, 
+    state.westOpen, 
+    state.northOpen, 
+    state.southOpen, 
+    state.customRooms.length
+  ]);
 
   const sliderImages = [
     {
@@ -148,7 +175,20 @@ export default function InputModule({ language, state, updateState, theme: propT
       }
       return r;
     });
-    updateState('customRooms', updated);
+    if (field === 'name') {
+      const reCalculated = calculateOptimalRoomDimensions(
+        updated,
+        state.siteLength,
+        state.siteWidth,
+        state.eastOpen,
+        state.westOpen,
+        state.northOpen,
+        state.southOpen
+      );
+      updateState('customRooms', reCalculated);
+    } else {
+      updateState('customRooms', updated);
+    }
   };
 
   const getRoomColor = (name) => {
