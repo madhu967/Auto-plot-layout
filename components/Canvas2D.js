@@ -12,9 +12,9 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
   // CAD Layer toggles & Scale state
   const [showGrid, setShowGrid] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
-  const [showCirculation, setShowCirculation] = useState(true);
+  const [showCirculation, setShowCirculation] = useState(false); // Default to FALSE to hide green walking lines
   const [showFurniture, setShowFurniture] = useState(true);
-  const [scale, setScale] = useState(1.0);
+  const [scale, setScale] = useState(1.0); // Panning physical zoom factor
 
   // Parse Compass Orientation rotation angle
   const angle = parseFloat(state.compassAngle) || 0;
@@ -24,21 +24,46 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
   const siteW = parseFloat(state.siteWidth) || 30;
   const maxDim = Math.max(siteL, siteW);
 
-  const eastO = parseFloat(state.eastOpen) || 0;
-  const westO = parseFloat(state.westOpen) || 0;
-  const northO = parseFloat(state.northOpen) || 0;
-  const southO = parseFloat(state.southOpen) || 0;
+  let eastO = parseFloat(state.eastOpen) || 0;
+  let westO = parseFloat(state.westOpen) || 0;
+  let northO = parseFloat(state.northOpen) || 0;
+  let southO = parseFloat(state.southOpen) || 0;
+
+  const minFootprintDim = 10.0; // 10 feet minimum building width/length
+
+  // Dynamically scale down horizontal setbacks if they exceed available width minus building width
+  if (westO + eastO > siteW - minFootprintDim) {
+    const totalO = westO + eastO;
+    const allowedO = siteW - minFootprintDim;
+    const ratio = allowedO / Math.max(0.1, totalO);
+    westO *= ratio;
+    eastO *= ratio;
+  }
+
+  // Dynamically scale down vertical setbacks if they exceed available length minus building length
+  if (northO + southO > siteL - minFootprintDim) {
+    const totalO = northO + southO;
+    const allowedO = siteL - minFootprintDim;
+    const ratio = allowedO / Math.max(0.1, totalO);
+    northO *= ratio;
+    southO *= ratio;
+  }
 
   // Buildable footprint area in Feet
-  const footW = Math.max(10, siteW - eastO - westO);
-  const footL = Math.max(10, siteL - northO - southO);
+  const footW = siteW - eastO - westO;
+  const footL = siteL - northO - southO;
 
   // Scaled dimensions to occupy almost the entire screen (increased scale from 0.80 to 0.94)
   const availableCanvasWidth = SCREEN_WIDTH - 32;
   const plotWidth = (siteW / maxDim) * (availableCanvasWidth * 0.94);
   const plotHeight = (siteL / maxDim) * (availableCanvasWidth * 0.94);
   
-  const pxPerFt = plotWidth / siteW;
+  // Physical scale zoom: multiply base pixels-per-foot by the user-selected scale factor
+  const basePxPerFt = plotWidth / siteW;
+  const pxPerFt = basePxPerFt * scale;
+
+  const currentPlotWidth = plotWidth * scale;
+  const currentPlotHeight = plotHeight * scale;
 
   const footWidthPx = footW * pxPerFt;
   const footHeightPx = footL * pxPerFt;
@@ -49,7 +74,548 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
   const southOpenPx = southO * pxPerFt;
 
   // Dynamic canvas height to fit everything and avoid any vertical overlaps
-  const CANVAS_HEIGHT = Math.max(620, plotHeight + 160);
+  const CANVAS_HEIGHT = Math.max(620, currentPlotHeight + 160);
+
+  const getUtilityCoords = (location, utilityType) => {
+    if (!location) return { x: 0, y: 0, w: 0, h: 0 };
+    const pad = 12 * scale;
+    const size = 32 * scale;
+    const rightSide = currentPlotWidth - eastOpenPx - pad - size;
+    const bottomSide = currentPlotHeight - southOpenPx - pad - size;
+
+    let coord = { x: pad, y: pad };
+
+    if (location.includes("Northeast")) {
+      coord = { x: rightSide, y: pad };
+    } else if (location.includes("Southeast")) {
+      coord = { x: rightSide, y: bottomSide };
+    } else if (location.includes("Southwest")) {
+      coord = { x: pad, y: bottomSide };
+    } else if (location.includes("Northwest")) {
+      coord = { x: pad, y: pad };
+    } else if (location.includes("North")) {
+      coord = { x: currentPlotWidth / 2 - size / 2, y: pad };
+    } else if (location.includes("South")) {
+      coord = { x: currentPlotWidth / 2 - size / 2, y: bottomSide };
+    } else if (location.includes("East")) {
+      coord = { x: rightSide, y: currentPlotHeight / 2 - size / 2 };
+    } else if (location.includes("West")) {
+      coord = { x: pad, y: currentPlotHeight / 2 - size / 2 };
+    }
+
+    if (utilityType === 'sump') {
+      coord.y += 38 * scale; 
+    }
+
+    return { ...coord, w: size, h: size };
+  };
+
+  // Helper to format room names cleanly inside small spaces to prevent clutter
+  const getCleanRoomLabel = (fullName, wPx, hPx) => {
+    if (!fullName) return "";
+    if (wPx < 52 || hPx < 52) {
+      const n = fullName.toLowerCase();
+      if (n.includes("bedroom")) return "Bed";
+      if (n.includes("kitchen")) return "Kit";
+      if (n.includes("toilet") || n.includes("bathroom")) return "Bath";
+      if (n.includes("pooja")) return "Pooja";
+      if (n.includes("dining")) return "Dining";
+      if (n.includes("living") || n.includes("hall")) return "Hall";
+      if (n.includes("study")) return "Study";
+      return fullName.substring(0, 5) + ".";
+    }
+    return fullName;
+  };
+
+  const renderRoomFurniture = (room) => {
+    if (!showFurniture) return null;
+
+    const name = room.name.toLowerCase();
+    const rW_px = room.visW * pxPerFt;
+    const rH_px = room.visH * pxPerFt;
+
+    // Show furniture only if room has sufficient size to prevent overlaps
+    if (rW_px < 35 || rH_px < 35) return null;
+
+    const pad = 4 * scale;
+
+    if (name.includes("bedroom") || name.includes("guest") || name.includes("study")) {
+      const bW = Math.min(rW_px * 0.65, 6.0 * pxPerFt);
+      const bH = Math.min(rH_px * 0.70, 6.5 * pxPerFt);
+      const pilW = bW * 0.38;
+      const pilH = Math.min(bH * 0.18, 1.2 * pxPerFt);
+      const headH = Math.min(bH * 0.08, 0.4 * pxPerFt);
+      const blankH = bH * 0.42;
+
+      return (
+        <View style={[styles.bedFurniture, { width: bW, height: bH, bottom: pad, right: pad }]}>
+          <View style={styles.bedPillowsRow}>
+            <View style={[styles.bedPillow, { width: pilW, height: pilH }]} />
+            <View style={[styles.bedPillow, { width: pilW, height: pilH }]} />
+          </View>
+          <View style={[styles.bedHeadboard, { height: headH }]} />
+          <View style={[styles.bedBlanket, { height: blankH }]} />
+        </View>
+      );
+    }
+
+    if (name.includes("kitchen")) {
+      const cThick = Math.min(rW_px * 0.25, 2.0 * pxPerFt);
+      const stoveW = Math.min(rW_px * 0.4, 2.5 * pxPerFt);
+      const stoveH = Math.min(rH_px * 0.25, 1.6 * pxPerFt);
+      const sinkSize = Math.min(rW_px * 0.3, 1.8 * pxPerFt);
+
+      return (
+        <View style={styles.furnitureOverlayContainer}>
+          <View style={[styles.kitchenCounterV, { width: cThick, right: 0, top: 0, bottom: 0 }]} />
+          <View style={[styles.kitchenCounterH, { height: cThick, bottom: 0, left: 0, right: 0 }]} />
+          <View style={[styles.cooktopStove, { width: stoveW, height: stoveH, bottom: cThick + pad, right: pad }]} >
+            <View style={[styles.burnerCircle, { width: 4 * scale, height: 4 * scale, borderRadius: 2 * scale }]} />
+            <View style={[styles.burnerCircle, { width: 4 * scale, height: 4 * scale, borderRadius: 2 * scale }]} />
+          </View>
+          <View style={[styles.kitchenSink, { width: sinkSize, height: sinkSize, top: pad, right: pad }]} />
+        </View>
+      );
+    }
+
+    if (name.includes("toilet") || name.includes("bathroom")) {
+      const comW = Math.min(rW_px * 0.38, 1.6 * pxPerFt);
+      const comH = Math.min(rH_px * 0.45, 2.2 * pxPerFt);
+      const tankW = comW * 0.88;
+      const tankH = comH * 0.25;
+      const bowlW = comW * 0.75;
+      const bowlH = comH * 0.65;
+      const basinSize = Math.min(rW_px * 0.3, 1.5 * pxPerFt);
+
+      return (
+        <View style={styles.furnitureOverlayContainer}>
+          <View style={[styles.toiletCommode, { width: comW, height: comH, left: pad, top: pad }]}>
+            <View style={[styles.toiletTank, { width: tankW, height: tankH }]} />
+            <View style={[styles.toiletBowl, { width: bowlW, height: bowlH }]} />
+          </View>
+          <View style={[styles.washBasinCorner, { width: basinSize, height: basinSize, right: pad, top: pad }]} />
+        </View>
+      );
+    }
+
+    if (name.includes("living") || name.includes("hall") || name.includes("drawing")) {
+      const sofaW1 = Math.min(rW_px * 0.22, 1.8 * pxPerFt);
+      const sofaH2 = Math.min(rH_px * 0.22, 1.8 * pxPerFt);
+      const tableW = Math.min(rW_px * 0.4, 2.8 * pxPerFt);
+      const tableH = Math.min(rH_px * 0.3, 1.8 * pxPerFt);
+
+      return (
+        <View style={styles.furnitureOverlayContainer}>
+          <View style={styles.sofaSectional}>
+            <View style={[styles.sofaSeatLong, { width: sofaW1 }]} />
+            <View style={[styles.sofaSeatShort, { left: sofaW1, top: 0, width: sofaW1 * 1.5, height: sofaH2 }]} />
+          </View>
+          <View style={[styles.coffeeTable, { width: tableW, height: tableH, left: sofaW1 * 1.8, top: sofaH2 * 1.5 }]} />
+        </View>
+      );
+    }
+
+    if (name.includes("dining")) {
+      const tblW = rW_px * 0.55;
+      const tblH = rH_px * 0.42;
+      const chairSize = Math.min(rW_px * 0.08, 1.0 * pxPerFt);
+
+      return (
+        <View style={[styles.diningTableSet, { width: tblW, height: tblH, left: rW_px * 0.22, top: rH_px * 0.28 }]}>
+          <View style={[styles.diningChairDot, { width: chairSize, height: chairSize, borderRadius: chairSize / 2 }]} />
+          <View style={[styles.diningChairDot, { width: chairSize, height: chairSize, borderRadius: chairSize / 2 }]} />
+          <View style={styles.diningTablePlate} />
+          <View style={[styles.diningChairDot, { width: chairSize, height: chairSize, borderRadius: chairSize / 2 }]} />
+          <View style={[styles.diningChairDot, { width: chairSize, height: chairSize, borderRadius: chairSize / 2 }]} />
+        </View>
+      );
+    }
+
+    if (name.includes("pooja")) {
+      const pedSize = Math.min(rW_px * 0.4, 1.8 * pxPerFt);
+      return (
+        <View style={[styles.poojaPedestal, { width: pedSize, height: pedSize, right: pad, top: pad }]}>
+          <Ionicons name="flame" size={Math.min(14, pedSize * 0.8)} color="#D97706" />
+        </View>
+      );
+    }
+
+    return null;
+  };
+
+  const getRoomIcon = (name) => {
+    const n = name.toLowerCase();
+    if (n.includes("pooja")) return "flame-outline";
+    if (n.includes("kitchen")) return "restaurant-outline";
+    if (n.includes("master")) return "bed-outline";
+    if (n.includes("toilet") || n.includes("bathroom")) return "water-outline";
+    if (n.includes("dining")) return "cafe-outline";
+    if (n.includes("study")) return "book-outline";
+    return "tv-outline";
+  };
+
+  const isPrivateRoom = (name) => {
+    if (!name) return false;
+    const n = name.toLowerCase();
+    return n.includes("bedroom") || n.includes("toilet") || n.includes("bathroom") || n.includes("wc") || n.includes("pooja");
+  };
+
+  const getEntranceArrowStyle = () => {
+    if (!mainDoor) return {};
+    const x_px = mainDoor.x * pxPerFt;
+    const y_px = mainDoor.y * pxPerFt;
+    
+    let left = x_px - 22 * scale; // Center horizontally
+    let top = y_px - 17 * scale;  // Center vertically
+    let rotate = '0deg';
+
+    if (mainDoor.wallSide === 'top') {
+      top = y_px - 38 * scale; // North setback outside house
+      rotate = '0deg'; // points DOWN into the house
+    } else if (mainDoor.wallSide === 'bottom') {
+      top = y_px + 10 * scale; // South setback outside house
+      rotate = '180deg'; // points UP into the house
+    } else if (mainDoor.wallSide === 'left') {
+      left = x_px - 44 * scale; // West setback outside house
+      rotate = '270deg'; // points RIGHT into the house
+    } else if (mainDoor.wallSide === 'right') {
+      left = x_px + 10 * scale; // East setback outside house
+      rotate = '90deg'; // points LEFT into the house
+    }
+
+    return { left, top, transform: [{ rotate }] };
+  };
+
+  const renderRoads = () => {
+    const road = state.roadDirection || 'North Road';
+    const roadsList = [];
+
+    const drawRoadComponent = (direction, key) => {
+      let style = {};
+      let isVertical = false;
+      const rSize = 26 * scale;
+      const rOffset = 38 * scale;
+      if (direction === 'North') {
+        style = { top: -rOffset, left: 0, right: 0, height: rSize };
+      } else if (direction === 'South') {
+        style = { bottom: -rOffset, left: 0, right: 0, height: rSize };
+      } else if (direction === 'East') {
+        style = { right: -rOffset, top: 0, bottom: 0, width: rSize };
+        isVertical = true;
+      } else if (direction === 'West') {
+        style = { left: -rOffset, top: 0, bottom: 0, width: rSize };
+        isVertical = true;
+      }
+
+      return (
+        <View key={key} style={[styles.asphaltRoad, style, isVertical ? styles.vertAsphalt : styles.horizAsphalt]}>
+          <View style={isVertical ? styles.roadLaneDividerV : styles.roadLaneDividerH} />
+          <Text style={[styles.asphaltRoadText, { fontSize: 6.8 * scale }, isVertical && { transform: [{ rotate: '90deg' }] }]}>
+            {direction.toUpperCase()} ROADWAY (30 FT WIDE)
+          </Text>
+        </View>
+      );
+    };
+
+    if (road.includes("Corner E+N") || road.includes("Corner E + N")) {
+      roadsList.push(drawRoadComponent('North', 'road-n'));
+      roadsList.push(drawRoadComponent('East', 'road-e'));
+    } else if (road.includes("Corner W+S") || road.includes("Corner W + S")) {
+      roadsList.push(drawRoadComponent('South', 'road-s'));
+      roadsList.push(drawRoadComponent('West', 'road-w'));
+    } else {
+      if (road.includes("North")) roadsList.push(drawRoadComponent('North', 'road-n'));
+      else if (road.includes("South")) roadsList.push(drawRoadComponent('South', 'road-s'));
+      else if (road.includes("East")) roadsList.push(drawRoadComponent('East', 'road-e'));
+      else if (road.includes("West")) roadsList.push(drawRoadComponent('West', 'road-w'));
+    }
+
+    return roadsList;
+  };
+
+  const renderDoorSymbol = (door) => {
+    const dW_ft = door.widthFt || (door.isBathroom ? 2.3 : door.isMain ? 3.8 : 2.8);
+    const dW = dW_ft * pxPerFt;
+    const dH_thick = intWallThick * pxPerFt;
+
+    const doorLeft = door.x * pxPerFt;
+    const doorTop = door.y * pxPerFt;
+
+    if (door.isMain) {
+      let frameStyle = {};
+      let leafL = {}, leafR = {};
+      let arcL = {}, arcR = {};
+      const halfW = dW / 2;
+
+      if (door.type === 'horizontal') {
+        const topOffset = door.wallSide === 'top' ? 0 : -dH_thick;
+        frameStyle = {
+          left: doorLeft - halfW,
+          top: doorTop + topOffset,
+          width: dW,
+          height: dH_thick,
+          backgroundColor: '#FFFFFF', 
+        };
+
+        if (door.wallSide === 'top') {
+          leafL = { position: 'absolute', left: 0, top: 0, width: 2, height: halfW, backgroundColor: '#B45309' };
+          leafR = { position: 'absolute', right: 0, top: 0, width: 2, height: halfW, backgroundColor: '#B45309' };
+          arcL = { position: 'absolute', left: 0, top: 0, width: halfW, height: halfW, borderBottomLeftRadius: halfW, borderLeftWidth: 1, borderBottomWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(180, 83, 9, 0.7)' };
+          arcR = { position: 'absolute', right: 0, top: 0, width: halfW, height: halfW, borderBottomRightRadius: halfW, borderRightWidth: 1, borderBottomWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(180, 83, 9, 0.7)' };
+        } else {
+          leafL = { position: 'absolute', left: 0, bottom: 0, width: 2, height: halfW, backgroundColor: '#B45309' };
+          leafR = { position: 'absolute', right: 0, bottom: 0, width: 2, height: halfW, backgroundColor: '#B45309' };
+          arcL = { position: 'absolute', left: 0, bottom: 0, width: halfW, height: halfW, borderTopLeftRadius: halfW, borderLeftWidth: 1, borderTopWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(180, 83, 9, 0.7)' };
+          arcR = { position: 'absolute', right: 0, bottom: 0, width: halfW, height: halfW, borderTopRightRadius: halfW, borderRightWidth: 1, borderTopWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(180, 83, 9, 0.7)' };
+        }
+      } else {
+        const leftOffset = door.wallSide === 'left' ? 0 : -dH_thick;
+        frameStyle = {
+          left: doorLeft + leftOffset,
+          top: doorTop - halfW,
+          width: dH_thick,
+          height: dW,
+          backgroundColor: '#FFFFFF',
+        };
+
+        if (door.wallSide === 'left') {
+          leafL = { position: 'absolute', left: 0, top: 0, width: halfW, height: 2, backgroundColor: '#B45309' };
+          leafR = { position: 'absolute', left: 0, bottom: 0, width: halfW, height: 2, backgroundColor: '#B45309' };
+          arcL = { position: 'absolute', left: 0, top: 0, width: halfW, height: halfW, borderTopRightRadius: halfW, borderRightWidth: 1, borderTopWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(180, 83, 9, 0.7)' };
+          arcR = { position: 'absolute', left: 0, bottom: 0, width: halfW, height: halfW, borderBottomRightRadius: halfW, borderRightWidth: 1, borderBottomWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(180, 83, 9, 0.7)' };
+        } else {
+          leafL = { position: 'absolute', right: 0, top: 0, width: halfW, height: 2, backgroundColor: '#B45309' };
+          leafR = { position: 'absolute', right: 0, bottom: 0, width: halfW, height: 2, backgroundColor: '#B45309' };
+          arcL = { position: 'absolute', right: 0, top: 0, width: halfW, height: halfW, borderTopLeftRadius: halfW, borderLeftWidth: 1, borderTopWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(180, 83, 9, 0.7)' };
+          arcR = { position: 'absolute', right: 0, bottom: 0, width: halfW, height: halfW, borderBottomLeftRadius: halfW, borderLeftWidth: 1, borderBottomWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(180, 83, 9, 0.7)' };
+        }
+      }
+
+      return (
+        <View key="main-double-door" style={[styles.doorFrameBlock, frameStyle]}>
+          <View style={leafL} />
+          <View style={leafR} />
+          <View style={arcL} />
+          <View style={arcR} />
+        </View>
+      );
+    }
+
+    // Single doors
+    let doorStyle = {};
+    let leafStyle = {};
+    let arcStyle = {};
+
+    if (door.type === 'horizontal') {
+      const topOffset = door.wallSide === 'top' ? 0 : -dH_thick;
+      doorStyle = {
+        left: doorLeft - dW / 2,
+        top: doorTop + topOffset,
+        width: dW,
+        height: dH_thick,
+        backgroundColor: '#FFFFFF',
+      };
+
+      if (door.wallSide === 'top') {
+        leafStyle = { position: 'absolute', left: 0, top: 0, width: 2, height: dW, backgroundColor: '#B45309' };
+        arcStyle = { position: 'absolute', left: 0, top: 0, width: dW, height: dW, borderBottomLeftRadius: dW, borderLeftWidth: 1.2, borderBottomWidth: 1.2, borderStyle: 'dashed', borderColor: 'rgba(180, 83, 9, 0.6)' };
+      } else {
+        leafStyle = { position: 'absolute', left: 0, bottom: 0, width: 2, height: dW, backgroundColor: '#B45309' };
+        arcStyle = { position: 'absolute', left: 0, bottom: 0, width: dW, height: dW, borderTopLeftRadius: dW, borderLeftWidth: 1.2, borderTopWidth: 1.2, borderStyle: 'dashed', borderColor: 'rgba(180, 83, 9, 0.6)' };
+      }
+    } else {
+      const leftOffset = door.wallSide === 'left' ? 0 : -dH_thick;
+      doorStyle = {
+        left: doorLeft + leftOffset,
+        top: doorTop - dW / 2,
+        width: dH_thick,
+        height: dW,
+        backgroundColor: '#FFFFFF',
+      };
+
+      if (door.wallSide === 'left') {
+        leafStyle = { position: 'absolute', left: 0, top: 0, width: dW, height: 2, backgroundColor: '#B45309' };
+        arcStyle = { position: 'absolute', left: 0, top: 0, width: dW, height: dW, borderTopRightRadius: dW, borderRightWidth: 1.2, borderTopWidth: 1.2, borderStyle: 'dashed', borderColor: 'rgba(180, 83, 9, 0.6)' };
+      } else {
+        leafStyle = { position: 'absolute', right: 0, top: 0, width: dW, height: 2, backgroundColor: '#B45309' };
+        arcStyle = { position: 'absolute', right: 0, top: 0, width: dW, height: dW, borderTopLeftRadius: dW, borderLeftWidth: 1.2, borderTopWidth: 1.2, borderStyle: 'dashed', borderColor: 'rgba(180, 83, 9, 0.6)' };
+      }
+    }
+
+    return (
+      <View key={door.id} style={[styles.doorFrameBlock, doorStyle]}>
+        <View style={leafStyle} />
+        <View style={arcStyle} />
+      </View>
+    );
+  };
+
+  const renderWindowSymbol = (win) => {
+    const winW = win.widthFt * pxPerFt;
+    const wThick = extWallThick * pxPerFt;
+
+    const winLeft = win.x * pxPerFt;
+    const winTop = win.y * pxPerFt;
+
+    let winStyle = {};
+    let chajjaStyle = null; 
+
+    const chajjaExtend = 5 * scale; 
+    const chajjaDepth = 1.0 * pxPerFt; 
+    const winVisualThick = 6 * scale; // Centered visual block thickness
+
+    // Centering math inside the wall boundaries
+    if (win.type === 'horizontal') {
+      const centeringOffset = (wThick - winVisualThick) / 2;
+      const finalTop = winTop + (win.side === 'top' ? centeringOffset : -wThick + centeringOffset);
+
+      winStyle = {
+        left: winLeft - winW / 2,
+        top: finalTop,
+        width: winW,
+        height: winVisualThick,
+        borderWidth: 1.2,
+        borderColor: win.isBathroom ? '#475569' : '#0284C7',
+        backgroundColor: win.isBathroom ? '#64748B' : '#0EA5E9',
+      };
+
+      if (win.side === 'top') {
+        chajjaStyle = {
+          position: 'absolute',
+          left: winLeft - winW / 2 - chajjaExtend,
+          top: winTop - chajjaDepth,
+          width: winW + chajjaExtend * 2,
+          height: chajjaDepth,
+          borderStyle: 'dashed',
+          borderWidth: 1,
+          borderColor: '#475569',
+          borderBottomWidth: 0,
+        };
+      } else {
+        chajjaStyle = {
+          position: 'absolute',
+          left: winLeft - winW / 2 - chajjaExtend,
+          top: winTop + wThick,
+          width: winW + chajjaExtend * 2,
+          height: chajjaDepth,
+          borderStyle: 'dashed',
+          borderWidth: 1,
+          borderColor: '#475569',
+          borderTopWidth: 0,
+        };
+      }
+    } else {
+      const centeringOffset = (wThick - winVisualThick) / 2;
+      const finalLeft = winLeft + (win.side === 'left' ? centeringOffset : -wThick + centeringOffset);
+
+      winStyle = {
+        left: finalLeft,
+        top: winTop - winW / 2,
+        width: winVisualThick,
+        height: winW,
+        borderWidth: 1.2,
+        borderColor: win.isBathroom ? '#475569' : '#0284C7',
+        backgroundColor: win.isBathroom ? '#64748B' : '#0EA5E9',
+      };
+
+      if (win.side === 'left') {
+        chajjaStyle = {
+          position: 'absolute',
+          left: winLeft - chajjaDepth,
+          top: winTop - winW / 2 - chajjaExtend,
+          width: chajjaDepth,
+          height: winW + chajjaExtend * 2,
+          borderStyle: 'dashed',
+          borderWidth: 1,
+          borderColor: '#475569',
+          borderRightWidth: 0,
+        };
+      } else {
+        chajjaStyle = {
+          position: 'absolute',
+          left: winLeft + wThick,
+          top: winTop - winW / 2 - chajjaExtend,
+          width: chajjaDepth,
+          height: winW + chajjaExtend * 2,
+          borderStyle: 'dashed',
+          borderWidth: 1,
+          borderColor: '#475569',
+          borderLeftWidth: 0,
+        };
+      }
+    }
+
+    return (
+      <React.Fragment key={win.id}>
+        {chajjaStyle && <View style={chajjaStyle} />}
+        <View style={[styles.windowGlassBlock, winStyle]}>
+          <View style={win.type === 'horizontal' ? styles.winGlassCenterH : styles.winGlassCenterV} />
+          {win.isKitchen && <Text style={styles.exhaustIndicator}>EF</Text>}
+          <Text style={windowLabelTagStyle(win)}>{win.isBathroom ? 'V' : 'W'}</Text>
+        </View>
+      </React.Fragment>
+    );
+  };
+
+  const windowLabelTagStyle = (win) => {
+    return {
+      fontSize: Math.min(10, 5.5 * scale),
+      fontWeight: '900',
+      color: '#0284C7',
+      position: 'absolute',
+      bottom: win.side === 'bottom' ? 8 : -8,
+    };
+  };
+
+  const renderCirculationPath = () => {
+    if (!showCirculation || !hallBlock || !mainDoor) return null;
+
+    const hX = hallX + hallW / 2;
+    const hY = hallY + hallH / 2;
+
+    const paths = [];
+
+    // Path 1: Entrance outside -> Main Door -> Hall Center
+    paths.push(
+      <RenderCirculationLine 
+        key="circ-entrance" 
+        x1={mainDoor.x} y1={mainDoor.y} 
+        x2={hX} y2={hY} 
+        pxPerFt={pxPerFt} 
+        footLeft={0} footTop={0} 
+      />
+    );
+    // Draw dot nodes at Entrance and Hall Center
+    paths.push(<RenderNodeDot key="node-md" x={mainDoor.x} y={mainDoor.y} pxPerFt={pxPerFt} footLeft={0} footTop={0} />);
+    paths.push(<RenderNodeDot key="node-hc" x={hX} y={hY} pxPerFt={pxPerFt} footLeft={0} footTop={0} />);
+
+    // Paths: Main Hall -> Room Threshold Doors
+    doors.forEach((door, index) => {
+      paths.push(
+        <RenderCirculationLine 
+          key={`circ-door-${index}`} 
+          x1={hX} y1={hY} 
+          x2={door.x} y2={door.y} 
+          pxPerFt={pxPerFt} 
+          footLeft={0} footTop={0} 
+        />
+      );
+      paths.push(<RenderNodeDot key={`node-door-${index}`} x={door.x} y={door.y} pxPerFt={pxPerFt} footLeft={0} footTop={0} />);
+    });
+
+    return paths;
+  };
+
+
+
+  // Determine the entrance cell in the 3x3 grid
+  const mainDoorDir = state.mainDoorDirection || 'North';
+  let entRow = 1;
+  let entCol = 1;
+  if (mainDoorDir === 'North') { entRow = 0; entCol = 1; }
+  else if (mainDoorDir === 'South') { entRow = 2; entCol = 1; }
+  else if (mainDoorDir === 'East') { entRow = 1; entCol = 2; }
+  else if (mainDoorDir === 'West') { entRow = 1; entCol = 0; }
 
   // ==========================================
   // 1. VASTU DYNAMIC LAYOUT GRID GENERATION
@@ -60,75 +626,142 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
     [[], [], []]
   ];
 
-  state.customRooms.forEach(room => {
-    const name = room.name.toLowerCase();
-    const parsedRoom = {
+  // Cells reserved for the main merged Hall/Living room (Center + Entrance Cell)
+  const reservedCells = [`1,1`, `${entRow},${entCol}`];
+
+  // Sort and assign rooms based on Vastu slots & architectural zoning
+  const customRooms = [...state.customRooms];
+  const poojaRoom = customRooms.find(r => r.name.toLowerCase().includes("pooja"));
+  const kitchenRoom = customRooms.find(r => r.name.toLowerCase().includes("kitchen"));
+  const masterBed = customRooms.find(r => r.name.toLowerCase().includes("master"));
+  const diningRoom = customRooms.find(r => r.name.toLowerCase().includes("dining"));
+
+  const otherRooms = customRooms.filter(r => 
+    r.id !== poojaRoom?.id && 
+    r.id !== kitchenRoom?.id && 
+    r.id !== masterBed?.id && 
+    r.id !== diningRoom?.id
+  );
+
+  // NE (0, 2) -> Pooja
+  if (poojaRoom) {
+    grid[0][2].push({
+      id: poojaRoom.id,
+      name: poojaRoom.name,
+      reqW: parseFloat(poojaRoom.width) || 10,
+      reqH: parseFloat(poojaRoom.length) || 10,
+    });
+  }
+
+  // SE (2, 2) -> Kitchen
+  if (kitchenRoom) {
+    grid[2][2].push({
+      id: kitchenRoom.id,
+      name: kitchenRoom.name,
+      reqW: parseFloat(kitchenRoom.width) || 10,
+      reqH: parseFloat(kitchenRoom.length) || 10,
+    });
+  }
+
+  // SW (2, 0) -> Master Bed
+  if (masterBed) {
+    grid[2][0].push({
+      id: masterBed.id,
+      name: masterBed.name,
+      reqW: parseFloat(masterBed.width) || 10,
+      reqH: parseFloat(masterBed.length) || 10,
+    });
+  }
+
+  // E (1, 2) -> Dining (if present, keep it next to Kitchen SE)
+  if (diningRoom) {
+    grid[1][2].push({
+      id: diningRoom.id,
+      name: diningRoom.name,
+      reqW: parseFloat(diningRoom.width) || 10,
+      reqH: parseFloat(diningRoom.length) || 10,
+    });
+    reservedCells.push(`1,2`); // Reserve East cell for Dining
+  }
+
+  // Allocate other private rooms (Bedrooms, Toilets) to NW, W, S, N
+  const otherPrivate = otherRooms.filter(r => isPrivateRoom(r.name));
+  const otherPublic = otherRooms.filter(r => !isPrivateRoom(r.name));
+
+  const privateSlots = [[0, 0], [1, 0], [2, 1], [0, 1]];
+  let privIdx = 0;
+  otherPrivate.forEach(room => {
+    const parsed = {
       id: room.id,
       name: room.name,
       reqW: parseFloat(room.width) || 10,
       reqH: parseFloat(room.length) || 10,
     };
-
-    if (name.includes("pooja")) {
-      grid[0][2].push(parsedRoom); // NE (Auspicious for Pooja Altar)
-    } else if (name.includes("kitchen")) {
-      grid[2][2].push(parsedRoom); // SE (Auspicious for Agni/Kitchen Stove)
-    } else if (name.includes("master")) {
-      grid[2][0].push(parsedRoom); // SW (Auspicious for Master Bedroom)
-    } else if (name.includes("toilet") || name.includes("bathroom") || name.includes("bath") || name.includes("wc")) {
-      if (grid[0][0].length === 0) grid[0][0].push(parsedRoom); // NW (Optimal Toilet direction)
-      else if (grid[1][0].length === 0) grid[1][0].push(parsedRoom); // W
-      else grid[2][1].push(parsedRoom); // S
-    } else if (name.includes("dining")) {
-      if (grid[1][2].length === 0) grid[1][2].push(parsedRoom); // E (Near kitchen)
-      else if (grid[2][1].length === 0) grid[2][1].push(parsedRoom); // S
-      else grid[1][1].push(parsedRoom); // Center
-    } else if (name.includes("study")) {
-      if (grid[0][1].length === 0) grid[0][1].push(parsedRoom); // N
-      else grid[0][2].push(parsedRoom); // NE
-    } else if (name.includes("guest") || name.includes("bedroom")) {
-      if (grid[0][0].length === 0) grid[0][0].push(parsedRoom); // NW
-      else if (grid[0][1].length === 0) grid[0][1].push(parsedRoom); // N
-      else if (grid[2][1].length === 0) grid[2][1].push(parsedRoom); // S
-      else grid[1][0].push(parsedRoom); // W
-    } else if (name.includes("living") || name.includes("hall") || name.includes("drawing")) {
-      grid[1][1].push(parsedRoom); // Center/Brahmasthan
-    } else {
-      let placed = false;
-      const order = [[0, 1], [1, 2], [2, 1], [1, 0], [0, 0], [0, 2], [2, 0], [2, 2]];
-      for (const [r, c] of order) {
-        if (grid[r][c].length === 0) {
-          grid[r][c].push(parsedRoom);
-          placed = true;
-          break;
-        }
+    while (privIdx < privateSlots.length) {
+      const [r, c] = privateSlots[privIdx];
+      const key = `${r},${c}`;
+      if (!reservedCells.includes(key) && grid[r][c].length === 0) {
+        grid[r][c].push(parsed);
+        privIdx++;
+        break;
       }
-      if (!placed) grid[1][1].push(parsedRoom);
+      privIdx++;
     }
   });
 
-  // Ensure center has a living room if not explicitly defined
-  if (grid[1][1].length === 0) {
-    grid[1][1].push({
-      id: "default-hall",
-      name: isTe ? "హాల్ (Living Room)" : "Living Room (Hall)",
-      reqW: footW * 0.35,
-      reqH: footL * 0.35
-    });
-  }
+  // Allocate remaining public rooms to remaining available slots
+  otherPublic.forEach(room => {
+    const parsed = {
+      id: room.id,
+      name: room.name,
+      reqW: parseFloat(room.width) || 10,
+      reqH: parseFloat(room.length) || 10,
+    };
+    let placed = false;
+    const publicSlots = [[0, 1], [1, 0], [2, 1], [0, 0]];
+    for (const [r, c] of publicSlots) {
+      const key = `${r},${c}`;
+      if (!reservedCells.includes(key) && grid[r][c].length === 0) {
+        grid[r][c].push(parsed);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          const key = `${r},${c}`;
+          if (!reservedCells.includes(key) && grid[r][c].length === 0) {
+            grid[r][c].push(parsed);
+            placed = true;
+            break;
+          }
+        }
+        if (placed) break;
+      }
+    }
+  });
 
   // Calculate adaptive column widths & row heights
   const getColMaxW = (c) => {
     let max = 0;
     for (let r = 0; r < 3; r++) {
-      grid[r][c].forEach(rm => { if (rm.reqW > max) max = rm.reqW; });
+      grid[r][c].forEach(rm => { 
+        const n = rm.name.toLowerCase();
+        const isHall = n.includes("hall") || n.includes("living") || n.includes("drawing");
+        if (!isHall && rm.reqW > max) max = rm.reqW; 
+      });
     }
     return max;
   };
   const getRowMaxH = (r) => {
     let max = 0;
     for (let c = 0; c < 3; c++) {
-      grid[r][c].forEach(rm => { if (rm.reqH > max) max = rm.reqH; });
+      grid[r][c].forEach(rm => { 
+        const n = rm.name.toLowerCase();
+        const isHall = n.includes("hall") || n.includes("living") || n.includes("drawing");
+        if (!isHall && rm.reqH > max) max = rm.reqH; 
+      });
     }
     return max;
   };
@@ -145,12 +778,13 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
   if (colW[1] === 0) colW[1] = 10;
   if (rowH[1] === 0) rowH[1] = 10;
 
+  // Proportional Scaling: scale all 3 columns and rows to fill the footprint envelope completely (no space wastage)
   const sumW = colW[0] + colW[1] + colW[2];
-  const colScale = footW / sumW;
+  const colScale = footW / Math.max(1, sumW);
   const colW_scaled = colW.map(w => w * colScale);
 
   const sumH = rowH[0] + rowH[1] + rowH[2];
-  const rowScale = footL / sumH;
+  const rowScale = footL / Math.max(1, sumH);
   const rowH_scaled = rowH.map(h => h * rowScale);
 
   const colX = [0, colW_scaled[0], colW_scaled[0] + colW_scaled[1]];
@@ -159,6 +793,10 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
   let blocks = [];
   for (let r = 0; r < 3; r++) {
     for (let c = 0; c < 3; c++) {
+      // Skip the cells reserved for the merged Hall
+      if (r === 1 && c === 1) continue;
+      if (r === entRow && c === entCol) continue;
+
       const cellRooms = grid[r][c];
       const cellX = colX[c];
       const cellY = rowY[r];
@@ -167,14 +805,34 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
 
       if (cellRooms.length === 0) continue;
 
+      const corridorWidth = 3.2;
+
       if (cellRooms.length === 1) {
+        let x = cellX;
+        let y = cellY;
+        let w = cellW;
+        let h = cellH;
+
+        // Apply physical corridor carving to leave open passage spaces
+        if (r === 1 && c === 0) { // West room: shrink right side
+          w = Math.max(4.0, cellW - corridorWidth);
+        } else if (r === 1 && c === 2) { // East room: shrink left side and shift right
+          w = Math.max(4.0, cellW - corridorWidth);
+          x = cellX + corridorWidth;
+        } else if (r === 0 && c === 1) { // North room: shrink bottom side
+          h = Math.max(4.0, cellH - corridorWidth);
+        } else if (r === 2 && c === 1) { // South room: shrink top side and shift down
+          h = Math.max(4.0, cellH - corridorWidth);
+          y = cellY + corridorWidth;
+        }
+
         blocks.push({
           id: cellRooms[0].id,
           name: cellRooms[0].name,
-          x: cellX,
-          y: cellY,
-          w: cellW,
-          h: cellH,
+          x,
+          y,
+          w,
+          h,
           gridRow: r,
           gridCol: c
         });
@@ -182,28 +840,62 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
         const count = cellRooms.length;
         if (cellW > cellH) {
           const subW = cellW / count;
-          cellRooms.forEach((room, idx) => {
+          cellRooms.forEach((rm, idx) => {
+            let x = cellX + idx * subW;
+            let y = cellY;
+            let w = subW;
+            let h = cellH;
+
+            if (r === 1 && c === 0) {
+              w = Math.max(2.0, subW - corridorWidth);
+            } else if (r === 1 && c === 2) {
+              w = Math.max(2.0, subW - corridorWidth);
+              x = cellX + idx * subW + corridorWidth;
+            } else if (r === 0 && c === 1) {
+              h = Math.max(4.0, cellH - corridorWidth);
+            } else if (r === 2 && c === 1) {
+              h = Math.max(4.0, cellH - corridorWidth);
+              y = cellY + corridorWidth;
+            }
+
             blocks.push({
-              id: room.id,
-              name: room.name,
-              x: cellX + idx * subW,
-              y: cellY,
-              w: subW,
-              h: cellH,
+              id: rm.id,
+              name: rm.name,
+              x,
+              y,
+              w,
+              h,
               gridRow: r,
               gridCol: c
             });
           });
         } else {
           const subH = cellH / count;
-          cellRooms.forEach((room, idx) => {
+          cellRooms.forEach((rm, idx) => {
+            let x = cellX;
+            let y = cellY + idx * subH;
+            let w = cellW;
+            let h = subH;
+
+            if (r === 1 && c === 0) {
+              w = Math.max(4.0, cellW - corridorWidth);
+            } else if (r === 1 && c === 2) {
+              w = Math.max(4.0, cellW - corridorWidth);
+              x = cellX + corridorWidth;
+            } else if (r === 0 && c === 1) {
+              h = Math.max(2.0, subH - corridorWidth);
+            } else if (r === 2 && c === 1) {
+              h = Math.max(2.0, subH - corridorWidth);
+              y = cellY + idx * subH + corridorWidth;
+            }
+
             blocks.push({
-              id: room.id,
-              name: room.name,
-              x: cellX,
-              y: cellY + idx * subH,
-              w: cellW,
-              h: subH,
+              id: rm.id,
+              name: rm.name,
+              x,
+              y,
+              w,
+              h,
               gridRow: r,
               gridCol: c
             });
@@ -213,70 +905,78 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
     }
   }
 
-  // Expand center room to empty neighboring cells (resolves gaps)
-  const hallBlock = blocks.find(b => b.name.toLowerCase().includes("living") || b.name.toLowerCase().includes("hall")) ||
-                    blocks.find(b => b.gridRow === 1 && b.gridCol === 1) || blocks[0];
+  // Create the unified merged Hall block that spans the Center cell and the Entrance cell
+  let hallX = colX[1];
+  let hallY = rowY[1];
+  let hallW = colW_scaled[1];
+  let hallH = rowH_scaled[1];
 
-  if (hallBlock) {
-    const occupied = Array.from({ length: 3 }, () => Array(3).fill(false));
-    blocks.forEach(b => { occupied[b.gridRow][b.gridCol] = true; });
+  if (mainDoorDir === 'North') {
+    hallY = rowY[0];
+    hallH = rowH_scaled[0] + rowH_scaled[1];
+  } else if (mainDoorDir === 'South') {
+    hallH = rowH_scaled[1] + rowH_scaled[2];
+  } else if (mainDoorDir === 'East') {
+    hallW = colW_scaled[1] + colW_scaled[2];
+  } else if (mainDoorDir === 'West') {
+    hallX = colX[0];
+    hallW = colW_scaled[0] + colW_scaled[1];
+  }
 
-    if (!occupied[0][1]) {
-      hallBlock.y = rowY[0];
-      hallBlock.h += rowH_scaled[0];
-      occupied[0][1] = true;
-    }
-    if (!occupied[2][1]) {
-      hallBlock.h += rowH_scaled[2];
-      occupied[2][1] = true;
-    }
-    if (!occupied[1][0]) {
-      hallBlock.x = colX[0];
-      hallBlock.w += colW_scaled[0];
-      occupied[1][0] = true;
-    }
-    if (!occupied[1][2]) {
-      hallBlock.w += colW_scaled[2];
-      occupied[1][2] = true;
-    }
+  const hallBlockId = 'merged-hall';
+  blocks.push({
+    id: hallBlockId,
+    name: isTe ? "హాల్ (Living Room)" : "Living Room (Hall)",
+    x: hallX,
+    y: hallY,
+    w: hallW,
+    h: hallH,
+    gridRow: 1,
+    gridCol: 1
+  });
 
-    // Expand corner rooms into empty neighbors
-    if (!occupied[0][0]) {
-      const neighbor = blocks.find(b => b.gridRow === 0 && b.gridCol === 1) || blocks.find(b => b.gridRow === 1 && b.gridCol === 0);
-      if (neighbor) {
-        if (neighbor.gridCol === 1) { neighbor.x = colX[0]; neighbor.w += colW_scaled[0]; }
-        else { neighbor.y = rowY[0]; neighbor.h += rowH_scaled[0]; }
-        occupied[0][0] = true;
-      }
+  // Expand remaining empty corner slots to neighboring rooms to prevent dead spaces
+  const occupied = Array.from({ length: 3 }, () => Array(3).fill(false));
+  blocks.forEach(b => { occupied[b.gridRow][b.gridCol] = true; });
+  // Set merged Hall areas as occupied
+  occupied[1][1] = true;
+  occupied[entRow][entCol] = true;
+
+  if (!occupied[0][0]) {
+    const neighbor = blocks.find(b => b.gridRow === 0 && b.gridCol === 1) || blocks.find(b => b.gridRow === 1 && b.gridCol === 0);
+    if (neighbor) {
+      if (neighbor.gridCol === 1) { neighbor.x = colX[0]; neighbor.w += colW_scaled[0]; }
+      else { neighbor.y = rowY[0]; neighbor.h += rowH_scaled[0]; }
+      occupied[0][0] = true;
     }
-    if (!occupied[0][2]) {
-      const neighbor = blocks.find(b => b.gridRow === 0 && b.gridCol === 1) || blocks.find(b => b.gridRow === 1 && b.gridCol === 2);
-      if (neighbor) {
-        if (neighbor.gridCol === 1) { neighbor.w += colW_scaled[2]; }
-        else { neighbor.y = rowY[0]; neighbor.h += rowH_scaled[0]; }
-        occupied[0][2] = true;
-      }
+  }
+  if (!occupied[0][2]) {
+    const neighbor = blocks.find(b => b.gridRow === 0 && b.gridCol === 1) || blocks.find(b => b.gridRow === 1 && b.gridCol === 2);
+    if (neighbor) {
+      if (neighbor.gridCol === 1) { neighbor.w += colW_scaled[2]; }
+      else { neighbor.y = rowY[0]; neighbor.h += rowH_scaled[0]; }
+      occupied[0][2] = true;
     }
-    if (!occupied[2][0]) {
-      const neighbor = blocks.find(b => b.gridRow === 2 && b.gridCol === 1) || blocks.find(b => b.gridRow === 1 && b.gridCol === 0);
-      if (neighbor) {
-        if (neighbor.gridCol === 1) { neighbor.x = colX[0]; neighbor.w += colW_scaled[0]; }
-        else { neighbor.h += rowH_scaled[2]; }
-        occupied[2][0] = true;
-      }
+  }
+  if (!occupied[2][0]) {
+    const neighbor = blocks.find(b => b.gridRow === 2 && b.gridCol === 1) || blocks.find(b => b.gridRow === 1 && b.gridCol === 0);
+    if (neighbor) {
+      if (neighbor.gridCol === 1) { neighbor.x = colX[0]; neighbor.w += colW_scaled[0]; }
+      else { neighbor.h += rowH_scaled[2]; }
+      occupied[2][0] = true;
     }
-    if (!occupied[2][2]) {
-      const neighbor = blocks.find(b => b.gridRow === 2 && b.gridCol === 1) || blocks.find(b => b.gridRow === 1 && b.gridCol === 2);
-      if (neighbor) {
-        if (neighbor.gridCol === 1) { neighbor.w += colW_scaled[2]; }
-        else { neighbor.h += rowH_scaled[2]; }
-        occupied[2][2] = true;
-      }
+  }
+  if (!occupied[2][2]) {
+    const neighbor = blocks.find(b => b.gridRow === 2 && b.gridCol === 1) || blocks.find(b => b.gridRow === 1 && b.gridCol === 2);
+    if (neighbor) {
+      if (neighbor.gridCol === 1) { neighbor.w += colW_scaled[2]; }
+      else { neighbor.h += rowH_scaled[2]; }
+      occupied[2][2] = true;
     }
   }
 
   // ==========================================
-  // 2. DETAILED WALL SYSTEM WITH INSETS (9" & 4.5")
+  // 2. WALLS & ROOM INSET GENERATOR (9" & 4.5")
   // ==========================================
   const extWallThick = 0.75; // 9 inches in feet
   const intWallThick = 0.375; // 4.5 inches in feet
@@ -308,127 +1008,199 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
   });
 
   // ==========================================
-  // 3. DOOR & SWING PLACEMENTS
+  // 3. DOOR PLACEMENT (100% ROOM INDEPENDENCY)
   // ==========================================
   const doors = [];
+  const hallBlock = roomPlacements.find(b => b.id === hallBlockId);
+
+  // Attached Toilet designated resolver (if >= 2 bathrooms, attach the one closest to Master Bedroom)
+  const bathrooms = roomPlacements.filter(r => r.name.toLowerCase().includes("toilet") || r.name.toLowerCase().includes("bathroom") || r.name.toLowerCase().includes("wc"));
+  const masterBedRoom = roomPlacements.find(r => r.name.toLowerCase().includes("master"));
   
+  let attachedBathId = null;
+  if (bathrooms.length >= 2 && masterBedRoom) {
+    let minDistance = Infinity;
+    let closestBath = null;
+    bathrooms.forEach(bath => {
+      const dx = (bath.x + bath.w/2) - (masterBedRoom.x + masterBedRoom.w/2);
+      const dy = (bath.y + bath.h/2) - (masterBedRoom.y + masterBedRoom.h/2);
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestBath = bath;
+      }
+    });
+    if (closestBath) {
+      attachedBathId = closestBath.id;
+    }
+  }
+
   roomPlacements.forEach(b => {
-    if (b.id === hallBlock?.id) return;
+    if (b.id === hallBlockId) return;
+
+    const r = b.gridRow;
+    const c = b.gridCol;
     let doorPlaced = false;
 
-    // Check shared vertical wall with Hall (Room Left - Hall Right)
-    if (hallBlock && Math.abs((b.x + b.w) - hallBlock.x) < 0.1) {
-      const startY = Math.max(b.y, hallBlock.y);
-      const endY = Math.min(b.y + b.h, hallBlock.y + hallBlock.h);
-      if (endY - startY > 1.5) {
+    // 1. Check if this is the designated Master attached bathroom
+    if (b.id === attachedBathId && masterBedRoom) {
+      // Connect directly to Master Bedroom based on adjacency
+      if (Math.abs((b.x + b.w) - masterBedRoom.x) < 0.1) { // Toilet on Left, Bed on Right
         doors.push({
-          id: `door-${b.id}`,
+          id: `door-attached-${b.id}`,
           x: b.x + b.w,
-          y: (startY + endY) / 2,
+          y: b.y + b.h / 2,
           type: 'vertical',
           wallSide: 'right',
-          isBathroom: b.name.toLowerCase().includes("toilet") || b.name.toLowerCase().includes("bathroom")
+          isBathroom: true
         });
         doorPlaced = true;
-      }
-    }
-    // Check shared vertical wall with Hall (Room Right - Hall Left)
-    if (!doorPlaced && hallBlock && Math.abs(b.x - (hallBlock.x + hallBlock.w)) < 0.1) {
-      const startY = Math.max(b.y, hallBlock.y);
-      const endY = Math.min(b.y + b.h, hallBlock.y + hallBlock.h);
-      if (endY - startY > 1.5) {
+      } else if (Math.abs(b.x - (masterBedRoom.x + masterBedRoom.w)) < 0.1) { // Toilet on Right, Bed on Left
         doors.push({
-          id: `door-${b.id}`,
+          id: `door-attached-${b.id}`,
           x: b.x,
-          y: (startY + endY) / 2,
+          y: b.y + b.h / 2,
           type: 'vertical',
           wallSide: 'left',
-          isBathroom: b.name.toLowerCase().includes("toilet") || b.name.toLowerCase().includes("bathroom")
+          isBathroom: true
         });
         doorPlaced = true;
-      }
-    }
-    // Check shared horizontal wall with Hall (Room Top - Hall Bottom)
-    if (!doorPlaced && hallBlock && Math.abs((b.y + b.h) - hallBlock.y) < 0.1) {
-      const startX = Math.max(b.x, hallBlock.x);
-      const endX = Math.min(b.x + b.w, hallBlock.x + hallBlock.w);
-      if (endX - startX > 1.5) {
+      } else if (Math.abs((b.y + b.h) - masterBedRoom.y) < 0.1) { // Toilet on Top, Bed on Bottom
         doors.push({
-          id: `door-${b.id}`,
-          x: (startX + endX) / 2,
+          id: `door-attached-${b.id}`,
+          x: b.x + b.w / 2,
           y: b.y + b.h,
           type: 'horizontal',
           wallSide: 'bottom',
-          isBathroom: b.name.toLowerCase().includes("toilet") || b.name.toLowerCase().includes("bathroom")
+          isBathroom: true
         });
         doorPlaced = true;
-      }
-    }
-    // Check shared horizontal wall with Hall (Room Bottom - Hall Top)
-    if (!doorPlaced && hallBlock && Math.abs(b.y - (hallBlock.y + hallBlock.h)) < 0.1) {
-      const startX = Math.max(b.x, hallBlock.x);
-      const endX = Math.min(b.x + b.w, hallBlock.x + hallBlock.w);
-      if (endX - startX > 1.5) {
+      } else if (Math.abs(b.y - (masterBedRoom.y + masterBedRoom.h)) < 0.1) { // Toilet on Bottom, Bed on Top
         doors.push({
-          id: `door-${b.id}`,
-          x: (startX + endX) / 2,
+          id: `door-attached-${b.id}`,
+          x: b.x + b.w / 2,
           y: b.y,
           type: 'horizontal',
           wallSide: 'top',
-          isBathroom: b.name.toLowerCase().includes("toilet") || b.name.toLowerCase().includes("bathroom")
+          isBathroom: true
+        });
+        doorPlaced = true;
+      } else {
+        // Fallback attached placement
+        doors.push({
+          id: `door-attached-fallback-${b.id}`,
+          x: b.x + b.w / 2,
+          y: b.y + b.h,
+          type: 'horizontal',
+          wallSide: 'bottom',
+          isBathroom: true
         });
         doorPlaced = true;
       }
+      return; // Skip normal corridor door placement
     }
 
-    // Neighbor fallback
-    if (!doorPlaced) {
-      for (let i = 0; i < roomPlacements.length; i++) {
-        const b2 = roomPlacements[i];
-        if (b2.id === b.id) continue;
-        if (Math.abs((b.x + b.w) - b2.x) < 0.1) {
-          const startY = Math.max(b.y, b2.y);
-          const endY = Math.min(b.y + b.h, b2.y + b2.h);
-          if (endY - startY > 1.5) {
-            doors.push({
-              id: `door-${b.id}`,
-              x: b.x + b.w,
-              y: (startY + endY) / 2,
-              type: 'vertical',
-              wallSide: 'right',
-              isBathroom: b.name.toLowerCase().includes("toilet") || b.name.toLowerCase().includes("bathroom")
-            });
-            break;
-          }
-        }
-      }
+    // 2. Standard independent doors opening directly to Hall / Corridor
+    const isBath = b.name.toLowerCase().includes("toilet") || b.name.toLowerCase().includes("bathroom") || b.name.toLowerCase().includes("wc");
+    
+    if (r === 0 && c === 0) { // NW
+      doors.push({
+        id: `door-${b.id}`,
+        x: b.x + b.w,
+        y: b.y + b.h - 1.5,
+        type: 'vertical',
+        wallSide: 'right',
+        isBathroom: isBath
+      });
+    } else if (r === 0 && c === 2) { // NE
+      doors.push({
+        id: `door-${b.id}`,
+        x: b.x,
+        y: b.y + b.h - 1.5,
+        type: 'vertical',
+        wallSide: 'left',
+        isBathroom: isBath
+      });
+    } else if (r === 2 && c === 0) { // SW (Master Bed)
+      doors.push({
+        id: `door-${b.id}`,
+        x: b.x + b.w - 1.5,
+        y: b.y,
+        type: 'horizontal',
+        wallSide: 'top',
+        isBathroom: isBath
+      });
+    } else if (r === 2 && c === 2) { // SE (Kitchen / Study)
+      doors.push({
+        id: `door-${b.id}`,
+        x: b.x + 1.5,
+        y: b.y,
+        type: 'horizontal',
+        wallSide: 'top',
+        isBathroom: isBath
+      });
+    } else if (r === 0 && c === 1) { // N
+      doors.push({
+        id: `door-${b.id}`,
+        x: b.x + b.w / 2,
+        y: b.y + b.h,
+        type: 'horizontal',
+        wallSide: 'bottom',
+        isBathroom: isBath
+      });
+    } else if (r === 2 && c === 1) { // S
+      doors.push({
+        id: `door-${b.id}`,
+        x: b.x + b.w / 2,
+        y: b.y,
+        type: 'horizontal',
+        wallSide: 'top',
+        isBathroom: isBath
+      });
+    } else if (r === 1 && c === 0) { // W
+      doors.push({
+        id: `door-${b.id}`,
+        x: b.x + b.w,
+        y: b.y + b.h / 2,
+        type: 'vertical',
+        wallSide: 'right',
+        isBathroom: isBath
+      });
+    } else if (r === 1 && c === 2) { // E
+      doors.push({
+        id: `door-${b.id}`,
+        x: b.x,
+        y: b.y + b.h / 2,
+        type: 'vertical',
+        wallSide: 'left',
+        isBathroom: isBath
+      });
     }
   });
 
-  // Main door entrance at Hall
+  // Calculate Main Entrance door position on the Hall outer boundary
   let mainDoor = null;
   if (hallBlock) {
-    const mainDoorDir = state.mainDoorDirection || 'North';
-    let mdX = hallBlock.x + hallBlock.w / 2;
-    let mdY = hallBlock.y;
+    let mdX = hallX + hallW / 2;
+    let mdY = hallY;
     let mdType = 'horizontal';
     let mdSide = 'top';
 
     if (mainDoorDir === 'North') {
-      mdX = hallBlock.x + hallBlock.w / 2;
-      mdY = hallBlock.y;
+      mdX = hallX + hallW / 2;
+      mdY = hallY;
     } else if (mainDoorDir === 'South') {
-      mdX = hallBlock.x + hallBlock.w / 2;
-      mdY = hallBlock.y + hallBlock.h;
+      mdX = hallX + hallW / 2;
+      mdY = hallY + hallH;
       mdSide = 'bottom';
     } else if (mainDoorDir === 'East') {
-      mdX = hallBlock.x + hallBlock.w;
-      mdY = hallBlock.y + hallBlock.h / 2;
+      mdX = hallX + hallW;
+      mdY = hallY + hallH / 2;
       mdType = 'vertical';
       mdSide = 'right';
     } else if (mainDoorDir === 'West') {
-      mdX = hallBlock.x;
-      mdY = hallBlock.y + hallBlock.h / 2;
+      mdX = hallX;
+      mdY = hallY + hallH / 2;
       mdType = 'vertical';
       mdSide = 'left';
     }
@@ -442,6 +1214,8 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
     };
   }
 
+
+
   // ==========================================
   // 4. WINDOW & EXHAUST GENERATOR (Proportional Sizes)
   // ==========================================
@@ -453,7 +1227,7 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
 
     let wSize = 4.0; 
     if (isBath) wSize = 2.0; 
-    else if (b.name.toLowerCase().includes("living") || b.name.toLowerCase().includes("hall")) wSize = 5.5; 
+    else if (b.id === hallBlockId) wSize = 5.5; 
     else if (b.name.toLowerCase().includes("master") || b.name.toLowerCase().includes("bedroom")) wSize = 4.8;
     else if (isKit) wSize = 3.6;
 
@@ -515,48 +1289,190 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
     }
   });
 
-  // ==========================================
-  // 5. UTILITY PLACEMENT IN SETBACKS
-  // ==========================================
-  const getUtilityCoords = (location, utilityType) => {
-    const pad = 12;
-    const size = 32;
-    const rightSide = plotWidth - eastOpenPx - pad - size;
-    const bottomSide = plotHeight - southOpenPx - pad - size;
+  // ========================================================
+  // 5. UNIFIED CAD WALL DEDUPLICATION & MERGE SEGMENTS
+  // ========================================================
+  const rawSegments = [];
 
-    let coord = { x: pad, y: pad };
+  // Thick Outer Perimeter Walls (guarantees a solid continuous outer envelope)
+  rawSegments.push({
+    type: 'horizontal',
+    coord: extWallThick / 2,
+    start: extWallThick / 2,
+    end: footW - extWallThick / 2,
+    thickness: extWallThick,
+  });
+  rawSegments.push({
+    type: 'horizontal',
+    coord: footL - extWallThick / 2,
+    start: extWallThick / 2,
+    end: footW - extWallThick / 2,
+    thickness: extWallThick,
+  });
+  rawSegments.push({
+    type: 'vertical',
+    coord: extWallThick / 2,
+    start: extWallThick / 2,
+    end: footL - extWallThick / 2,
+    thickness: extWallThick,
+  });
+  rawSegments.push({
+    type: 'vertical',
+    coord: footW - extWallThick / 2,
+    start: extWallThick / 2,
+    end: footL - extWallThick / 2,
+    thickness: extWallThick,
+  });
 
-    if (location.includes("Northeast")) {
-      coord = { x: rightSide, y: pad };
-    } else if (location.includes("Southeast")) {
-      coord = { x: rightSide, y: bottomSide };
-    } else if (location.includes("Southwest")) {
-      coord = { x: pad, y: bottomSide };
-    } else if (location.includes("Northwest")) {
-      coord = { x: pad, y: pad };
-    } else if (location.includes("North")) {
-      coord = { x: plotWidth / 2 - size / 2, y: pad };
-    } else if (location.includes("South")) {
-      coord = { x: plotWidth / 2 - size / 2, y: bottomSide };
-    } else if (location.includes("East")) {
-      coord = { x: rightSide, y: plotHeight / 2 - size / 2 };
-    } else if (location.includes("West")) {
-      coord = { x: pad, y: plotHeight / 2 - size / 2 };
+  roomPlacements.forEach(b => {
+    if (b.id === hallBlockId) return; // Exclude Living Room (Hall) to merge corridors seamlessly with no lines
+    // Left Wall
+    rawSegments.push({
+      type: 'vertical',
+      coord: b.visX - b.borders.left / 2,
+      start: b.visY - b.borders.top / 2,
+      end: b.visY + b.visH + b.borders.bottom / 2,
+      thickness: b.borders.left,
+    });
+    // Right Wall
+    rawSegments.push({
+      type: 'vertical',
+      coord: b.visX + b.visW + b.borders.right / 2,
+      start: b.visY - b.borders.top / 2,
+      end: b.visY + b.visH + b.borders.bottom / 2,
+      thickness: b.borders.right,
+    });
+    // Top Wall
+    rawSegments.push({
+      type: 'horizontal',
+      coord: b.visY - b.borders.top / 2,
+      start: b.visX - b.borders.left / 2,
+      end: b.visX + b.visW + b.borders.right / 2,
+      thickness: b.borders.top,
+    });
+    // Bottom Wall
+    rawSegments.push({
+      type: 'horizontal',
+      coord: b.visY + b.visH + b.borders.bottom / 2,
+      start: b.visX - b.borders.left / 2,
+      end: b.visX + b.visW + b.borders.right / 2,
+      thickness: b.borders.bottom,
+    });
+  });
+
+  // Deduplicate and combine duplicate/overlapping interior wall lines
+  let segments = [];
+  rawSegments.forEach(newSeg => {
+    let merged = false;
+    for (let i = 0; i < segments.length; i++) {
+      let exist = segments[i];
+      if (exist.type === newSeg.type && Math.abs(exist.coord - newSeg.coord) < 0.15) {
+        // Overlapping segments on the same line: merge start and end points
+        const overlap = Math.max(exist.start, newSeg.start) <= Math.min(exist.end, newSeg.end) + 0.1;
+        if (overlap) {
+          exist.start = Math.min(exist.start, newSeg.start);
+          exist.end = Math.max(exist.end, newSeg.end);
+          exist.thickness = Math.max(exist.thickness, newSeg.thickness);
+          merged = true;
+          break;
+        }
+      }
+    }
+    if (!merged) {
+      segments.push({ ...newSeg });
+    }
+  });
+
+  // Split wall segments at doors and windows to create realistic gaps
+  const splitSegmentsForOpenings = (openings) => {
+    let current = [];
+    segments.forEach(seg => {
+      let intersected = [];
+      openings.forEach(op => {
+        const opW = op.widthFt || (op.isBathroom ? 2.3 : op.isMain ? 3.8 : 2.8);
+        const opCoord = seg.type === 'horizontal' ? op.y : op.x;
+        const opCenter = seg.type === 'horizontal' ? op.x : op.y;
+        
+        const isAligned = Math.abs(seg.coord - opCoord) < 0.25;
+        if (isAligned) {
+          const startOp = opCenter - opW / 2;
+          const endOp = opCenter + opW / 2;
+          if (startOp < seg.end && endOp > seg.start) {
+            intersected.push({ start: startOp, end: endOp });
+          }
+        }
+      });
+
+      if (intersected.length === 0) {
+        current.push(seg);
+      } else {
+        intersected.sort((a, b) => a.start - b.start);
+        let prev = seg.start;
+        intersected.forEach(inter => {
+          if (inter.start > prev + 0.1) {
+            current.push({ ...seg, start: prev, end: inter.start });
+          }
+          prev = Math.max(prev, inter.end);
+        });
+        if (seg.end > prev + 0.1) {
+          current.push({ ...seg, start: prev, end: seg.end });
+        }
+      }
+    });
+    segments = current;
+  };
+
+  // Split walls at interior door locations
+  splitSegmentsForOpenings(doors.map(d => ({ ...d, x: d.x, y: d.y })));
+  // Split walls at main entrance door location
+  if (mainDoor) {
+    splitSegmentsForOpenings([mainDoor]);
+  }
+  // Split walls at exterior window locations
+  splitSegmentsForOpenings(windows.map(w => ({ ...w, x: w.x, y: w.y, widthFt: w.widthFt })));
+
+  // ==========================================
+  // 6. UTILITY PLACEMENT IN SETBACKS
+  // ==========================================
+  const renderWallSegment = (seg, index) => {
+    const s_px = seg.start * pxPerFt;
+    const e_px = seg.end * pxPerFt;
+    const len = e_px - s_px;
+    const thick = seg.thickness * pxPerFt;
+    const coord_px = seg.coord * pxPerFt;
+
+    if (len <= 0.1 * pxPerFt) return null;
+
+    let style = {};
+    if (seg.type === 'horizontal') {
+      style = {
+        position: 'absolute',
+        left: s_px,
+        top: coord_px - thick / 2,
+        width: len,
+        height: thick,
+        backgroundColor: '#0F172A', // Deep architectural wall fill (similar to dark blue/charcoal CAD prints)
+      };
+    } else {
+      style = {
+        position: 'absolute',
+        left: coord_px - thick / 2,
+        top: s_px,
+        width: thick,
+        height: len,
+        backgroundColor: '#0F172A',
+      };
     }
 
-    if (utilityType === 'sump') {
-      coord.y += 38; 
-    }
-
-    return { ...coord, w: size, h: size };
+    return <View key={`wall-${index}`} style={style} />;
   };
 
   // ==========================================
-  // 6. RENDER SUB-COMPONENTS
+  // 7. RENDER COMPONENT BLUEPRINTS
   // ==========================================
   const renderHorizontalRuler = () => {
     const ticks = [];
-    const step = plotWidth / 5;
+    const step = currentPlotWidth / 5;
     for (let i = 0; i <= 5; i++) {
       const val = Math.round((siteW / 5) * i);
       ticks.push(
@@ -571,7 +1487,7 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
 
   const renderVerticalRuler = () => {
     const ticks = [];
-    const step = plotHeight / 5;
+    const step = currentPlotHeight / 5;
     for (let i = 0; i <= 5; i++) {
       const val = Math.round((siteL / 5) * i);
       ticks.push(
@@ -583,701 +1499,299 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
     }
     return <View style={styles.verticalRuler}>{ticks}</View>;
   };
-
-  const renderRoads = () => {
-    const road = state.roadDirection || 'North Road';
-    const roadsList = [];
-
-    const drawRoadComponent = (direction, key) => {
-      let style = {};
-      let isVertical = false;
-      if (direction === 'North') {
-        style = { top: -38, left: 0, right: 0, height: 26 };
-      } else if (direction === 'South') {
-        style = { bottom: -38, left: 0, right: 0, height: 26 };
-      } else if (direction === 'East') {
-        style = { right: -38, top: 0, bottom: 0, width: 26 };
-        isVertical = true;
-      } else if (direction === 'West') {
-        style = { left: -38, top: 0, bottom: 0, width: 26 };
-        isVertical = true;
-      }
-
-      return (
-        <View key={key} style={[styles.asphaltRoad, style, isVertical ? styles.vertAsphalt : styles.horizAsphalt]}>
-          <View style={isVertical ? styles.roadLaneDividerV : styles.roadLaneDividerH} />
-          <Text style={[styles.asphaltRoadText, isVertical && { transform: [{ rotate: '90deg' }] }]}>
-            {direction.toUpperCase()} ROADWAY (30 FT WIDE)
-          </Text>
-        </View>
-      );
-    };
-
-    if (road.includes("Corner E+N") || road.includes("Corner E + N")) {
-      roadsList.push(drawRoadComponent('North', 'road-n'));
-      roadsList.push(drawRoadComponent('East', 'road-e'));
-    } else if (road.includes("Corner W+S") || road.includes("Corner W + S")) {
-      roadsList.push(drawRoadComponent('South', 'road-s'));
-      roadsList.push(drawRoadComponent('West', 'road-w'));
-    } else {
-      if (road.includes("North")) roadsList.push(drawRoadComponent('North', 'road-n'));
-      else if (road.includes("South")) roadsList.push(drawRoadComponent('South', 'road-s'));
-      else if (road.includes("East")) roadsList.push(drawRoadComponent('East', 'road-e'));
-      else if (road.includes("West")) roadsList.push(drawRoadComponent('West', 'road-w'));
-    }
-
-    return roadsList;
+  const getUtilityCoordsOffset = (location, utilityType) => {
+    return getUtilityCoords(location, utilityType);
   };
 
-  const renderDoorSymbol = (door) => {
-    const dW_ft = door.widthFt || (door.isBathroom ? 2.3 : door.isMain ? 3.8 : 2.8);
-    const dW = dW_ft * pxPerFt;
-    const dH_thick = intWallThick * pxPerFt;
-
-    const doorLeft = westOpenPx + door.x * pxPerFt;
-    const doorTop = northOpenPx + door.y * pxPerFt;
-
-    if (door.isMain) {
-      let frameStyle = {};
-      let leafL = {}, leafR = {};
-      let arcL = {}, arcR = {};
-      const halfW = dW / 2;
-
-      if (door.type === 'horizontal') {
-        const topOffset = door.wallSide === 'top' ? 0 : -dH_thick;
-        frameStyle = {
-          left: doorLeft - halfW,
-          top: doorTop + topOffset,
-          width: dW,
-          height: dH_thick,
-          backgroundColor: '#0F172A', // Seamless open gap in wall
-        };
-
-        if (door.wallSide === 'top') {
-          leafL = { position: 'absolute', left: 0, top: 0, width: 2, height: halfW, backgroundColor: '#D97706' };
-          leafR = { position: 'absolute', right: 0, top: 0, width: 2, height: halfW, backgroundColor: '#D97706' };
-          arcL = { position: 'absolute', left: 0, top: 0, width: halfW, height: halfW, borderBottomLeftRadius: halfW, borderLeftWidth: 1, borderBottomWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(217, 119, 6, 0.7)' };
-          arcR = { position: 'absolute', right: 0, top: 0, width: halfW, height: halfW, borderBottomRightRadius: halfW, borderRightWidth: 1, borderBottomWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(217, 119, 6, 0.7)' };
-        } else {
-          leafL = { position: 'absolute', left: 0, bottom: 0, width: 2, height: halfW, backgroundColor: '#D97706' };
-          leafR = { position: 'absolute', right: 0, bottom: 0, width: 2, height: halfW, backgroundColor: '#D97706' };
-          arcL = { position: 'absolute', left: 0, bottom: 0, width: halfW, height: halfW, borderTopLeftRadius: halfW, borderLeftWidth: 1, borderTopWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(217, 119, 6, 0.7)' };
-          arcR = { position: 'absolute', right: 0, bottom: 0, width: halfW, height: halfW, borderTopRightRadius: halfW, borderRightWidth: 1, borderTopWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(217, 119, 6, 0.7)' };
-        }
-      } else {
-        const leftOffset = door.wallSide === 'left' ? 0 : -dH_thick;
-        frameStyle = {
-          left: doorLeft + leftOffset,
-          top: doorTop - halfW,
-          width: dH_thick,
-          height: dW,
-          backgroundColor: '#0F172A',
-        };
-
-        if (door.wallSide === 'left') {
-          leafL = { position: 'absolute', left: 0, top: 0, width: halfW, height: 2, backgroundColor: '#D97706' };
-          leafR = { position: 'absolute', left: 0, bottom: 0, width: halfW, height: 2, backgroundColor: '#D97706' };
-          arcL = { position: 'absolute', left: 0, top: 0, width: halfW, height: halfW, borderTopRightRadius: halfW, borderRightWidth: 1, borderTopWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(217, 119, 6, 0.7)' };
-          arcR = { position: 'absolute', left: 0, bottom: 0, width: halfW, height: halfW, borderBottomRightRadius: halfW, borderRightWidth: 1, borderBottomWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(217, 119, 6, 0.7)' };
-        } else {
-          leafL = { position: 'absolute', right: 0, top: 0, width: halfW, height: 2, backgroundColor: '#D97706' };
-          leafR = { position: 'absolute', right: 0, bottom: 0, width: halfW, height: 2, backgroundColor: '#D97706' };
-          arcL = { position: 'absolute', right: 0, top: 0, width: halfW, height: halfW, borderTopLeftRadius: halfW, borderLeftWidth: 1, borderTopWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(217, 119, 6, 0.7)' };
-          arcR = { position: 'absolute', right: 0, bottom: 0, width: halfW, height: halfW, borderBottomLeftRadius: halfW, borderLeftWidth: 1, borderBottomWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(217, 119, 6, 0.7)' };
-        }
-      }
-
-      return (
-        <View key="main-double-door" style={[styles.doorFrameBlock, frameStyle]}>
-          <View style={leafL} />
-          <View style={leafR} />
-          <View style={arcL} />
-          <View style={arcR} />
-        </View>
-      );
-    }
-
-    // Single doors
-    let doorStyle = {};
-    let leafStyle = {};
-    let arcStyle = {};
-
-    if (door.type === 'horizontal') {
-      const topOffset = door.wallSide === 'top' ? 0 : -dH_thick;
-      doorStyle = {
-        left: doorLeft - dW / 2,
-        top: doorTop + topOffset,
-        width: dW,
-        height: dH_thick,
-        backgroundColor: '#0F172A',
-      };
-
-      if (door.wallSide === 'top') {
-        leafStyle = { position: 'absolute', left: 0, top: 0, width: 2, height: dW, backgroundColor: '#D97706' };
-        arcStyle = { position: 'absolute', left: 0, top: 0, width: dW, height: dW, borderBottomLeftRadius: dW, borderLeftWidth: 1.2, borderBottomWidth: 1.2, borderStyle: 'dashed', borderColor: 'rgba(217, 119, 6, 0.6)' };
-      } else {
-        leafStyle = { position: 'absolute', left: 0, bottom: 0, width: 2, height: dW, backgroundColor: '#D97706' };
-        arcStyle = { position: 'absolute', left: 0, bottom: 0, width: dW, height: dW, borderTopLeftRadius: dW, borderLeftWidth: 1.2, borderTopWidth: 1.2, borderStyle: 'dashed', borderColor: 'rgba(217, 119, 6, 0.6)' };
-      }
-    } else {
-      const leftOffset = door.wallSide === 'left' ? 0 : -dH_thick;
-      doorStyle = {
-        left: doorLeft + leftOffset,
-        top: doorTop - dW / 2,
-        width: dH_thick,
-        height: dW,
-        backgroundColor: '#0F172A',
-      };
-
-      if (door.wallSide === 'left') {
-        leafStyle = { position: 'absolute', left: 0, top: 0, width: dW, height: 2, backgroundColor: '#D97706' };
-        arcStyle = { position: 'absolute', left: 0, top: 0, width: dW, height: dW, borderTopRightRadius: dW, borderRightWidth: 1.2, borderTopWidth: 1.2, borderStyle: 'dashed', borderColor: 'rgba(217, 119, 6, 0.6)' };
-      } else {
-        leafStyle = { position: 'absolute', right: 0, top: 0, width: dW, height: 2, backgroundColor: '#D97706' };
-        arcStyle = { position: 'absolute', right: 0, top: 0, width: dW, height: dW, borderTopLeftRadius: dW, borderLeftWidth: 1.2, borderTopWidth: 1.2, borderStyle: 'dashed', borderColor: 'rgba(217, 119, 6, 0.6)' };
-      }
-    }
-
-    return (
-      <View key={door.id} style={[styles.doorFrameBlock, doorStyle]}>
-        <View style={leafStyle} />
-        <View style={arcStyle} />
-      </View>
-    );
-  };
-
-  const renderWindowSymbol = (win) => {
-    const winW = win.widthFt * pxPerFt;
-    const wThick = extWallThick * pxPerFt;
-
-    const winLeft = westOpenPx + win.x * pxPerFt;
-    const winTop = northOpenPx + win.y * pxPerFt;
-
-    let winStyle = {};
-    let chajjaStyle = null; 
-
-    const chajjaExtend = 5; 
-    const chajjaDepth = 1.0 * pxPerFt; 
-
-    if (win.type === 'horizontal') {
-      const topOffset = win.side === 'top' ? 0 : -wThick;
-      winStyle = {
-        left: winLeft - winW / 2,
-        top: winTop + topOffset,
-        width: winW,
-        height: wThick,
-        borderWidth: 1.2,
-        borderColor: win.isBathroom ? '#64748B' : '#38BDF8',
-        backgroundColor: win.isBathroom ? '#334155' : '#0C4A6E',
-      };
-
-      if (win.side === 'top') {
-        chajjaStyle = {
-          position: 'absolute',
-          left: winLeft - winW / 2 - chajjaExtend,
-          top: winTop - chajjaDepth,
-          width: winW + chajjaExtend * 2,
-          height: chajjaDepth,
-          borderStyle: 'dashed',
-          borderWidth: 1,
-          borderColor: '#475569',
-          borderBottomWidth: 0,
-        };
-      } else {
-        chajjaStyle = {
-          position: 'absolute',
-          left: winLeft - winW / 2 - chajjaExtend,
-          top: winTop + wThick,
-          width: winW + chajjaExtend * 2,
-          height: chajjaDepth,
-          borderStyle: 'dashed',
-          borderWidth: 1,
-          borderColor: '#475569',
-          borderTopWidth: 0,
-        };
-      }
-    } else {
-      const leftOffset = win.side === 'left' ? 0 : -wThick;
-      winStyle = {
-        left: winLeft + leftOffset,
-        top: winTop - winW / 2,
-        width: wThick,
-        height: winW,
-        borderWidth: 1.2,
-        borderColor: win.isBathroom ? '#64748B' : '#38BDF8',
-        backgroundColor: win.isBathroom ? '#334155' : '#0C4A6E',
-      };
-
-      if (win.side === 'left') {
-        chajjaStyle = {
-          position: 'absolute',
-          left: winLeft - chajjaDepth,
-          top: winTop - winW / 2 - chajjaExtend,
-          width: chajjaDepth,
-          height: winW + chajjaExtend * 2,
-          borderStyle: 'dashed',
-          borderWidth: 1,
-          borderColor: '#475569',
-          borderRightWidth: 0,
-        };
-      } else {
-        chajjaStyle = {
-          position: 'absolute',
-          left: winLeft + wThick,
-          top: winTop - winW / 2 - chajjaExtend,
-          width: chajjaDepth,
-          height: winW + chajjaExtend * 2,
-          borderStyle: 'dashed',
-          borderWidth: 1,
-          borderColor: '#475569',
-          borderLeftWidth: 0,
-        };
-      }
-    }
-
-    return (
-      <React.Fragment key={win.id}>
-        {chajjaStyle && <View style={chajjaStyle} />}
-        <View style={[styles.windowGlassBlock, winStyle]}>
-          <View style={win.type === 'horizontal' ? styles.winGlassCenterH : styles.winGlassCenterV} />
-          {win.isKitchen && <Text style={styles.exhaustIndicator}>EF</Text>}
-          <Text style={styles.windowLabelTag}>{win.isBathroom ? 'V' : 'W'}</Text>
-        </View>
-      </React.Fragment>
-    );
-  };
-
-  const renderCirculationPath = () => {
-    if (!showCirculation || !hallBlock || !mainDoor) return null;
-
-    const hX = hallBlock.x + hallBlock.w / 2;
-    const hY = hallBlock.y + hallBlock.h / 2;
-
-    const paths = [];
-
-    // Path 1: Entrance Gate -> Main Entrance Door
-    paths.push(
-      <RenderCirculationLine 
-        key="circ-entrance" 
-        x1={mainDoor.x} y1={mainDoor.y} 
-        x2={hX} y2={hY} 
-        pxPerFt={pxPerFt} 
-        footLeft={westOpenPx} footTop={northOpenPx} 
-      />
-    );
-
-    // Paths: Main Hall -> Room Threshold Doors
-    doors.forEach((door, index) => {
-      paths.push(
-        <RenderCirculationLine 
-          key={`circ-door-${index}`} 
-          x1={hX} y1={hY} 
-          x2={door.x} y2={door.y} 
-          pxPerFt={pxPerFt} 
-          footLeft={westOpenPx} footTop={northOpenPx} 
-        />
-      );
-    });
-
-    return paths;
-  };
-
-  const renderRoomFurniture = (room) => {
-    if (!showFurniture) return null;
-
-    const name = room.name.toLowerCase();
-    const rW_px = room.visW * pxPerFt;
-    const rH_px = room.visH * pxPerFt;
-
-    if (name.includes("bedroom") || name.includes("guest") || name.includes("study")) {
-      const bW = Math.min(rW_px * 0.65, 6.0 * pxPerFt);
-      const bH = Math.min(rH_px * 0.70, 6.5 * pxPerFt);
-      return (
-        <View style={[styles.bedFurniture, { width: bW, height: bH, bottom: 6, right: 6 }]}>
-          <View style={styles.bedPillowsRow}>
-            <View style={styles.bedPillow} />
-            <View style={styles.bedPillow} />
-          </View>
-          <View style={styles.bedHeadboard} />
-          <View style={styles.bedBlanket} />
-        </View>
-      );
-    }
-
-    if (name.includes("kitchen")) {
-      const cThick = 2.0 * pxPerFt;
-      return (
-        <View style={styles.furnitureOverlayContainer}>
-          <View style={[styles.kitchenCounterV, { width: cThick, right: 0, top: 0, bottom: 0 }]} />
-          <View style={[styles.kitchenCounterH, { height: cThick, bottom: 0, left: 0, right: 0 }]} />
-          <View style={[styles.cooktopStove, { bottom: 4, right: 4 }]}>
-            <View style={styles.burnerCircle} />
-            <View style={styles.burnerCircle} />
-          </View>
-          <View style={[styles.kitchenSink, { top: 6, right: 6 }]} />
-        </View>
-      );
-    }
-
-    if (name.includes("toilet") || name.includes("bathroom")) {
-      return (
-        <View style={styles.furnitureOverlayContainer}>
-          <View style={styles.toiletCommode}>
-            <View style={styles.toiletTank} />
-            <View style={styles.toiletBowl} />
-          </View>
-          <View style={styles.washBasinCorner} />
-        </View>
-      );
-    }
-
-    if (name.includes("living") || name.includes("hall") || name.includes("drawing")) {
-      return (
-        <View style={styles.furnitureOverlayContainer}>
-          <View style={styles.sofaSectional}>
-            <View style={styles.sofaSeatLong} />
-            <View style={styles.sofaSeatShort} />
-          </View>
-          <View style={styles.coffeeTable} />
-        </View>
-      );
-    }
-
-    if (name.includes("dining")) {
-      return (
-        <View style={[styles.diningTableSet, { width: rW_px * 0.6, height: rH_px * 0.5 }]}>
-          <View style={styles.diningChairDot} />
-          <View style={styles.diningChairDot} />
-          <View style={styles.diningTablePlate} />
-          <View style={styles.diningChairDot} />
-          <View style={styles.diningChairDot} />
-        </View>
-      );
-    }
-
-    if (name.includes("pooja")) {
-      return (
-        <View style={styles.poojaPedestal}>
-          <Ionicons name="flame" size={14} color="#FBBF24" />
-        </View>
-      );
-    }
-
-    return null;
-  };
-
-  const getRoomThemeColor = (name) => {
-    const n = name.toLowerCase();
-    if (n.includes("pooja")) return "rgba(245, 158, 11, 0.04)";
-    if (n.includes("kitchen")) return "rgba(239, 68, 68, 0.04)";
-    if (n.includes("master")) return "rgba(99, 102, 241, 0.04)";
-    if (n.includes("toilet") || n.includes("bathroom")) return "rgba(148, 163, 184, 0.03)";
-    if (n.includes("living") || n.includes("hall")) return "rgba(16, 185, 129, 0.03)";
-    return "rgba(251, 191, 36, 0.02)";
-  };
-
-  const getRoomIcon = (name) => {
-    const n = name.toLowerCase();
-    if (n.includes("pooja")) return "flame-outline";
-    if (n.includes("kitchen")) return "restaurant-outline";
-    if (n.includes("master")) return "bed-outline";
-    if (n.includes("toilet") || n.includes("bathroom")) return "water-outline";
-    if (n.includes("dining")) return "cafe-outline";
-    if (n.includes("study")) return "book-outline";
-    return "tv-outline";
+  const getCleanLabelText = (name, rW, rH) => {
+    return getCleanRoomLabel(name, rW, rH);
   };
 
   return (
     <View style={styles.container}>
       
-      {/* Light Theme CAD Blueprint Toolbar */}
+      {/* Horizontally scrollable toolbar to prevent overflow on mobile screens */}
       <View style={styles.draftToolbar}>
-        <View style={styles.toolbarTitleBlock}>
-          <View style={styles.onlineDot} />
-          <Text style={styles.toolbarTitle}>
-            {isTe ? "వాస్తు CAD నివాస ప్లాన్" : "CAD Architectural Planner Workspace"}
-          </Text>
-        </View>
-        
-        <View style={styles.toolbarActions}>
-          <TouchableOpacity 
-            style={[styles.toolBtn, showGrid && styles.activeToolBtn]} 
-            onPress={() => setShowGrid(!showGrid)}
-          >
-            <Ionicons name="grid-outline" size={13} color={showGrid ? "#FFFFFF" : theme.colors.primary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.toolBtn, showLabels && styles.activeToolBtn]} 
-            onPress={() => setShowLabels(!showLabels)}
-          >
-            <Ionicons name="text-outline" size={13} color={showLabels ? "#FFFFFF" : theme.colors.primary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.toolBtn, showFurniture && styles.activeToolBtn]} 
-            onPress={() => setShowFurniture(!showFurniture)}
-          >
-            <Ionicons name="bed-outline" size={13} color={showFurniture ? "#FFFFFF" : theme.colors.primary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.toolBtn, showCirculation && styles.activeToolBtn]} 
-            onPress={() => setShowCirculation(!showCirculation)}
-          >
-            <Ionicons name="walk-outline" size={13} color={showCirculation ? "#FFFFFF" : theme.colors.primary} />
-          </TouchableOpacity>
-
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={styles.toolbarScrollContent}
+        >
+          <View style={styles.toolbarTitleBlock}>
+            <View style={styles.onlineDot} />
+            <Text style={styles.toolbarTitle}>
+              {isTe ? "వాస్తు CAD నివాస ప్లాన్" : "CAD Architectural Planner Workspace"}
+            </Text>
+          </View>
+          
           <View style={styles.toolbarDivider} />
 
-          <TouchableOpacity style={styles.toolBtn} onPress={() => setScale(Math.max(0.6, scale - 0.1))}>
-            <Ionicons name="remove-outline" size={13} color={theme.colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.toolBtn} onPress={() => setScale(Math.min(1.4, scale + 0.1))}>
-            <Ionicons name="add-outline" size={13} color={theme.colors.primary} />
-          </TouchableOpacity>
-        </View>
+          <View style={styles.toolbarActions}>
+            <TouchableOpacity 
+              style={[styles.toolBtn, showGrid && styles.activeToolBtn]} 
+              onPress={() => setShowGrid(!showGrid)}
+            >
+              <Ionicons name="grid-outline" size={12} color={showGrid ? "#FFFFFF" : "#475569"} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.toolBtn, showLabels && styles.activeToolBtn]} 
+              onPress={() => setShowLabels(!showLabels)}
+            >
+              <Ionicons name="text-outline" size={12} color={showLabels ? "#FFFFFF" : "#475569"} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.toolBtn, showFurniture && styles.activeToolBtn]} 
+              onPress={() => setShowFurniture(!showFurniture)}
+            >
+              <Ionicons name="bed-outline" size={12} color={showFurniture ? "#FFFFFF" : "#475569"} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.toolBtn, showCirculation && styles.activeToolBtn]} 
+              onPress={() => setShowCirculation(!showCirculation)}
+            >
+              <Ionicons name="walk-outline" size={12} color={showCirculation ? "#FFFFFF" : "#475569"} />
+            </TouchableOpacity>
+
+            <View style={styles.toolbarDivider} />
+
+            <TouchableOpacity style={styles.toolBtn} onPress={() => setScale(Math.max(0.6, scale - 0.1))}>
+              <Ionicons name="remove-outline" size={12} color="#475569" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => setScale(Math.min(1.6, scale + 0.1))}>
+              <Ionicons name="add-outline" size={12} color="#475569" />
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </View>
 
-      {/* Screen-filling drawing canvas */}
+      {/* Screen-filling drawing canvas (wrapped in horizontal/vertical ScrollView for zoom & scroll support) */}
       <View style={[styles.canvasContainer, { height: CANVAS_HEIGHT }]}>
-        <View style={styles.draftSheet}>
-          <View style={[
-            styles.rotateWrapper,
-            { transform: [{ rotate: `${angle}deg` }, { scale: scale }] }
-          ]}>
+        <ScrollView style={styles.scrollV} contentContainerStyle={styles.scrollContentV}>
+          <ScrollView horizontal style={styles.scrollH} contentContainerStyle={styles.scrollContentH}>
             
-            {/* Centered Plot Boundary (Gold dotted outline) - removed left/top offsets to center perfectly */}
-            <View style={[styles.plotBoundary, { width: plotWidth, height: plotHeight }]}>
-              
-              {renderHorizontalRuler()}
-              {renderVerticalRuler()}
-
-              {showGrid && (
-                <View style={styles.cadGridBackdrop}>
-                  {Array.from({ length: 9 }).map((_, i) => (
-                    <View key={`grid-v-${i}`} style={[styles.cadGridV, { left: `${(i + 1) * 10}%` }]} />
-                  ))}
-                  {Array.from({ length: 9 }).map((_, i) => (
-                    <View key={`grid-h-${i}`} style={[styles.cadGridH, { top: `${(i + 1) * 10}%` }]} />
-                  ))}
-                </View>
-              )}
-
-              {/* Setback Utilities */}
-              {/* Stairs */}
+            <View style={[styles.draftSheet, { width: currentPlotWidth + 80, height: CANVAS_HEIGHT - 60 }]}>
               <View style={[
-                styles.stairsBlueprintBlock, 
-                getUtilityCoords(state.stairsLocation, 'stairs')
-              ]}>
-                <View style={styles.stairStepRow} />
-                <View style={styles.stairStepRow} />
-                <View style={styles.stairStepRow} />
-                <View style={styles.stairStepRow} />
-                <Text style={styles.utilityTextTag}>{isTe ? "మెట్లు" : "STAIRS"}</Text>
-              </View>
-
-              {/* Sump */}
-              <View style={[
-                styles.sumpBlueprintBlock,
-                getUtilityCoords(state.sumpLocation, 'sump')
-              ]}>
-                <Ionicons name="water-outline" size={12} color="#0284C7" />
-                <Text style={styles.utilityTextTag}>{isTe ? "సంప్" : "SUMP"}</Text>
-              </View>
-
-              {/* Borewell */}
-              <View style={[
-                styles.boreholeBlueprintBlock,
-                getUtilityCoords(state.boreLocation, 'bore')
-              ]}>
-                <View style={styles.boreRingOuter}>
-                  <View style={styles.boreRingInner} />
-                </View>
-                <Text style={styles.utilityTextTag}>{isTe ? "బోరు" : "BORE"}</Text>
-              </View>
-
-              {/* Septic Tank */}
-              <View style={[
-                styles.septicBlueprintBlock,
-                getUtilityCoords(state.septicLocation, 'septic')
-              ]}>
-                <Ionicons name="construct-outline" size={10} color="#64748B" />
-                <Text style={styles.utilityTextTag}>{isTe ? "సెప్టిక్" : "SEPTIC"}</Text>
-              </View>
-
-              {/* Outside toilet WC */}
-              <View style={[
-                styles.outsideWcBlock,
-                getUtilityCoords(state.outsideBtLocation, 'wc')
-              ]}>
-                <Ionicons name="water-outline" size={10} color="#64748B" />
-                <Text style={styles.utilityTextTag}>OUT WC</Text>
-              </View>
-
-              {/* Setback guideways */}
-              {westO > 0 && (
-                <View style={[styles.dimLineRow, { left: 0, width: westOpenPx, top: plotHeight / 2 - 8 }]}>
-                  <Text style={styles.dimArrowText}>◀</Text>
-                  <View style={styles.dimDashedLine} />
-                  <Text style={styles.dimValueText}>{westO}'</Text>
-                  <View style={styles.dimDashedLine} />
-                  <Text style={styles.dimArrowText}>▶</Text>
-                </View>
-              )}
-
-              {eastO > 0 && (
-                <View style={[styles.dimLineRow, { left: westOpenPx + footWidthPx, width: eastOpenPx, top: plotHeight / 2 - 8 }]}>
-                  <Text style={styles.dimArrowText}>◀</Text>
-                  <View style={styles.dimDashedLine} />
-                  <Text style={styles.dimValueText}>{eastO}'</Text>
-                  <View style={styles.dimDashedLine} />
-                  <Text style={styles.dimArrowText}>▶</Text>
-                </View>
-              )}
-
-              {northO > 0 && (
-                <View style={[styles.dimLineCol, { top: 0, height: northOpenPx, left: plotWidth / 2 - 8 }]}>
-                  <Text style={styles.dimArrowTextCol}>▲</Text>
-                  <View style={styles.dimDashedLineCol} />
-                  <Text style={styles.dimValueTextCol}>{northO}'</Text>
-                  <View style={styles.dimDashedLineCol} />
-                  <Text style={styles.dimArrowTextCol}>▼</Text>
-                </View>
-              )}
-
-              {southO > 0 && (
-                <View style={[styles.dimLineCol, { top: northOpenPx + footHeightPx, height: southOpenPx, left: plotWidth / 2 - 8 }]}>
-                  <Text style={styles.dimArrowTextCol}>▲</Text>
-                  <View style={styles.dimDashedLineCol} />
-                  <Text style={styles.dimValueTextCol}>{southO}'</Text>
-                  <View style={styles.dimDashedLineCol} />
-                  <Text style={styles.dimArrowTextCol}>▼</Text>
-                </View>
-              )}
-
-              {/* ==========================================
-                  BUILDING CONTAINER (Thick concrete walls)
-                  ========================================== */}
-              <View style={[
-                styles.buildingFootprintWalls, 
-                { 
-                  width: footWidthPx, 
-                  height: footHeightPx,
-                  left: westOpenPx,
-                  top: northOpenPx,
-                  backgroundColor: '#334155'
-                }
+                styles.rotateWrapper,
+                { transform: [{ rotate: `${angle}deg` }] } // Removed visual scale transform to allow physical layout zooming
               ]}>
                 
-                {/* Rooms rendering (with inset wall spacing) */}
-                {roomPlacements.map((room) => {
-                  const rX = room.visX * pxPerFt;
-                  const rY = room.visY * pxPerFt;
-                  const rW = room.visW * pxPerFt;
-                  const rH = room.visH * pxPerFt;
+                {/* Centered Plot Boundary (Amber dotted outline) - centered perfectly */}
+                <View style={[styles.plotBoundary, { width: currentPlotWidth, height: currentPlotHeight }]}>
+                  
+                  {renderHorizontalRuler()}
+                  {renderVerticalRuler()}
 
-                  return (
-                    <View 
-                      key={room.id}
-                      style={[
-                        styles.draftRoomBox,
-                        {
-                          left: rX,
-                          top: rY,
-                          width: rW,
-                          height: rH,
-                          backgroundColor: getRoomThemeColor(room.name),
-                          borderColor: room.name.toLowerCase().includes("master") ? '#6366F1' :
-                                       room.name.toLowerCase().includes("kitchen") ? '#EF4444' :
-                                       room.name.toLowerCase().includes("pooja") ? '#F59E0B' : '#64748B',
-                        }
-                      ]}
-                    >
-                      {renderRoomFurniture(room)}
-
-                      {showLabels && (
-                        <View style={styles.roomTextCentering}>
-                          <Ionicons name={getRoomIcon(room.name)} size={13} color="#D97706" style={{ marginBottom: 2 }} />
-                          <Text style={styles.roomLabelText} numberOfLines={1}>{room.name}</Text>
-                          <Text style={styles.roomSizeText}>
-                            {Math.round(room.visW)}' × {Math.round(room.visH)}'
-                          </Text>
-                        </View>
-                      )}
+                  {showGrid && (
+                    <View style={styles.cadGridBackdrop}>
+                      {Array.from({ length: 9 }).map((_, i) => (
+                        <View key={`grid-v-${i}`} style={[styles.cadGridV, { left: `${(i + 1) * 10}%` }]} />
+                      ))}
+                      {Array.from({ length: 9 }).map((_, i) => (
+                        <View key={`grid-h-${i}`} style={[styles.cadGridH, { top: `${(i + 1) * 10}%` }]} />
+                      ))}
                     </View>
-                  );
-                })}
+                  )}
 
-                {/* Main Gate & Entrance Arrow (Very Prominent) */}
-                {mainDoor && (
+                  {/* Vastu Quadrant Compass Badges (NE, NW, SE, SW) in Plot corners */}
+                  <View style={[styles.quadrantBadge, { top: 6, right: 6 }]}><Text style={styles.quadrantText}>NE</Text></View>
+                  <View style={[styles.quadrantBadge, { top: 6, left: 6 }]}><Text style={styles.quadrantText}>NW</Text></View>
+                  <View style={[styles.quadrantBadge, { bottom: 6, right: 6 }]}><Text style={styles.quadrantText}>SE</Text></View>
+                  <View style={[styles.quadrantBadge, { bottom: 6, left: 6 }]}><Text style={styles.quadrantText}>SW</Text></View>
+
+                  {/* Setback Utilities */}
+                  <View style={[styles.stairsBlueprintBlock, getUtilityCoordsOffset(state.stairsLocation, 'stairs')]}>
+                    <View style={styles.stairStepRow} />
+                    <View style={styles.stairStepRow} />
+                    <View style={styles.stairStepRow} />
+                    <View style={styles.stairStepRow} />
+                    <Text style={styles.utilityTextTag}>{isTe ? "మెట్లు" : "STAIRS"}</Text>
+                  </View>
+
+                  <View style={[styles.sumpBlueprintBlock, getUtilityCoordsOffset(state.sumpLocation, 'sump')]}>
+                    <Ionicons name="water-outline" size={12} color="#0284C7" />
+                    <Text style={styles.utilityTextTag}>{isTe ? "సంప్" : "SUMP"}</Text>
+                  </View>
+
+                  <View style={[styles.boreholeBlueprintBlock, getUtilityCoordsOffset(state.boreLocation, 'bore')]}>
+                    <View style={styles.boreRingOuter}><View style={styles.boreRingInner} /></View>
+                    <Text style={styles.utilityTextTag}>{isTe ? "బోరు" : "BORE"}</Text>
+                  </View>
+
+                  <View style={[styles.septicBlueprintBlock, getUtilityCoordsOffset(state.septicLocation, 'septic')]}>
+                    <Ionicons name="construct-outline" size={10} color="#64748B" />
+                    <Text style={styles.utilityTextTag}>{isTe ? "సెప్టిక్" : "SEPTIC"}</Text>
+                  </View>
+
+                  <View style={[styles.outsideWcBlock, getUtilityCoordsOffset(state.outsideBtLocation, 'wc')]}>
+                    <Ionicons name="water-outline" size={10} color="#64748B" />
+                    <Text style={styles.utilityTextTag}>OUT WC</Text>
+                  </View>
+
+                  {/* Setback Dimension lines */}
+                  {westO > 0 && (
+                    <View style={[styles.dimLineRow, { left: 0, width: westOpenPx, top: currentPlotHeight / 2 - 8 }]}>
+                      <Text style={styles.dimArrowText}>◀</Text>
+                      <View style={styles.dimDashedLine} />
+                      <Text style={styles.dimValueText}>{westO}'</Text>
+                      <View style={styles.dimDashedLine} />
+                      <Text style={styles.dimArrowText}>▶</Text>
+                    </View>
+                  )}
+
+                  {eastO > 0 && (
+                    <View style={[styles.dimLineRow, { left: westOpenPx + footWidthPx, width: eastOpenPx, top: currentPlotHeight / 2 - 8 }]}>
+                      <Text style={styles.dimArrowText}>◀</Text>
+                      <View style={styles.dimDashedLine} />
+                      <Text style={styles.dimValueText}>{eastO}'</Text>
+                      <View style={styles.dimDashedLine} />
+                      <Text style={styles.dimArrowText}>▶</Text>
+                    </View>
+                  )}
+
+                  {northO > 0 && (
+                    <View style={[styles.dimLineCol, { top: 0, height: northOpenPx, left: currentPlotWidth / 2 - 8 }]}>
+                      <Text style={styles.dimArrowTextCol}>▲</Text>
+                      <View style={styles.dimDashedLineCol} />
+                      <Text style={styles.dimValueTextCol}>{northO}'</Text>
+                      <View style={styles.dimDashedLineCol} />
+                      <Text style={styles.dimArrowTextCol}>▼</Text>
+                    </View>
+                  )}
+
+                  {southO > 0 && (
+                    <View style={[styles.dimLineCol, { top: northOpenPx + footHeightPx, height: southOpenPx, left: currentPlotWidth / 2 - 8 }]}>
+                      <Text style={styles.dimArrowTextCol}>▲</Text>
+                      <View style={styles.dimDashedLineCol} />
+                      <Text style={styles.dimValueTextCol}>{southO}'</Text>
+                      <View style={styles.dimDashedLineCol} />
+                      <Text style={styles.dimArrowTextCol}>▼</Text>
+                    </View>
+                  )}
+
+                  {/* ==========================================================
+                      BUILDING CONTAINER (Unified Floor - No clumsy box outlines)
+                      ========================================================== */}
                   <View style={[
-                    styles.entranceArrowContainer,
-                    {
-                      left: mainDoor.x * pxPerFt + (mainDoor.wallSide === 'left' ? -38 : mainDoor.wallSide === 'right' ? 18 : -18),
-                      top: mainDoor.y * pxPerFt + (mainDoor.wallSide === 'top' ? -38 : mainDoor.wallSide === 'bottom' ? 18 : -18),
-                      transform: [{ rotate: mainDoor.wallSide === 'top' ? '180deg' : mainDoor.wallSide === 'bottom' ? '0deg' : mainDoor.wallSide === 'left' ? '90deg' : '270deg' }]
+                    styles.buildingFootprintWalls, 
+                    { 
+                      width: footWidthPx, 
+                      height: footHeightPx,
+                      left: westOpenPx,
+                      top: northOpenPx,
+                      backgroundColor: '#FFFFFF', // Unified clean white building envelope floor slab
+                      borderWidth: 0, 
                     }
                   ]}>
-                    <Ionicons name="arrow-down-circle" size={18} color="#10B981" />
-                    <Text style={styles.entranceLabelTag}>MAIN GATE</Text>
+                    
+                    {/* Render borderless room overlay tiles containing labels & furniture */}
+                    {roomPlacements.map((room) => {
+                      const rX = room.visX * pxPerFt;
+                      const rY = room.visY * pxPerFt;
+                      const rW = room.visW * pxPerFt;
+                      const rH = room.visH * pxPerFt;
+
+                      const cleanLabelName = getCleanLabelText(room.name, rW, rH);
+                      const isSmall = rW < 52 || rH < 52;
+
+                      return (
+                        <View 
+                          key={room.id}
+                          style={[
+                            styles.draftRoomBox,
+                            {
+                              left: rX,
+                              top: rY,
+                              width: rW,
+                              height: rH,
+                              backgroundColor: '#FFFFFF', // Seamless uniform white interior floor
+                              borderWidth: 0, // NO double bordered boxes!
+                            }
+                          ]}
+                        >
+                          {renderRoomFurniture(room)}
+
+                          {showLabels && (
+                            <View style={styles.roomTextCentering}>
+                              {!isSmall && (
+                                <Ionicons name={getRoomIcon(room.name)} size={12} color="#475569" style={{ marginBottom: 2 }} />
+                              )}
+                              <Text style={[styles.roomLabelText, isSmall && { fontSize: 6.8 }]} numberOfLines={1}>
+                                {cleanLabelName}
+                              </Text>
+                              <Text style={[styles.roomSizeText, isSmall && { fontSize: 5.5 }]}>
+                                {Math.round(room.visW)}'×{Math.round(room.visH)}'
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+
+                    {/* Main Gate & Entrance Arrow (Visually outside, pointing directly at door) */}
+                    {mainDoor && (
+                      <View style={[styles.entranceArrowContainer, getEntranceArrowStyle()]}>
+                        <Ionicons name="arrow-down-circle" size={20 * scale} color="#10B981" />
+                        <Text style={styles.entranceLabelTag}>MAIN GATE</Text>
+                      </View>
+                    )}
+
+                    {/* Unified Bold CAD Wall Segments drawn over the rooms, leaving clean door/window gaps */}
+                    {segments.map((seg, idx) => renderWallSegment(seg, idx))}
+
+                    {/* Door Leaf & swing Arc symbols rendered cleanly inside the gaps */}
+                    {doors.map(d => renderDoorSymbol(d))}
+                    {mainDoor && renderDoorSymbol(mainDoor)}
+
+                    {/* Window Glass dividers and Sunshade lines rendered inside the gaps */}
+                    {windows.map(w => renderWindowSymbol(w))}
+
+
+
+                    {/* Optional circulation paths */}
+                    {renderCirculationPath()}
+
                   </View>
-                )}
 
-                {/* Doors Rendering */}
-                {doors.map(d => renderDoorSymbol(d))}
-                {mainDoor && renderDoorSymbol(mainDoor)}
-
-                {/* Windows Rendering */}
-                {windows.map(w => renderWindowSymbol(w))}
-
-                {/* Circulation path overlay */}
-                {renderCirculationPath()}
+                  {renderRoads()}
+                </View>
 
               </View>
 
-              {renderRoads()}
+              {/* Compass symbol */}
+              <View style={[styles.goldCompass, { transform: [{ rotate: `${angle}deg` }] }]}>
+                <Ionicons name="compass" size={26} color={theme.colors.accent} />
+                <Text style={styles.compassLabel}>N</Text>
+              </View>
+
             </View>
 
-          </View>
-
-          {/* Interactive compass icon showing rotation angle */}
-          <View style={[styles.goldCompass, { transform: [{ rotate: `${angle}deg` }] }]}>
-            <Ionicons name="compass" size={26} color={theme.colors.accent} />
-            <Text style={styles.compassLabel}>N</Text>
-          </View>
-
-        </View>
+          </ScrollView>
+        </ScrollView>
 
         {/* Legend Overlay Section (Senior Architectural Design UI) */}
         <View style={styles.legendContainer}>
-          <View style={styles.legendHeader}>
+          <View style={legendHeaderStyle(scale)}>
             <Text style={styles.legendTitle}>{isTe ? "సూచిక" : "ARCHITECTURAL BLUEPRINT LEGEND"}</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.legendContent}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendBox, { backgroundColor: '#334155', borderWidth: 0 }]} />
-              <Text style={styles.legendText}>{isTe ? "9\" బాహ్య గోడ" : "9\" External Wall"}</Text>
+              <View style={[styles.legendBox, { backgroundColor: '#0F172A', borderWidth: 0 }]} />
+              <Text style={styles.legendText}>{isTe ? "నివాస కాంక్రీట్ గోడ" : "CAD Solid Wall"}</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendBox, { backgroundColor: '#0F172A', borderColor: '#475569' }]} />
-              <Text style={styles.legendText}>{isTe ? "4.5\" విభజన గోడ" : "4.5\" Partition Wall"}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendBox, { backgroundColor: '#0C4A6E', borderColor: '#38BDF8' }]} />
+              <View style={[styles.legendBox, { backgroundColor: '#0EA5E9', borderColor: '#0284C7' }]} />
               <Text style={styles.legendText}>{isTe ? "కిటికీ / సన్ షేడ్" : "Window / Sunshade (Chajja)"}</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendBox, { backgroundColor: '#334155', borderColor: '#64748B' }]} />
-              <Text style={styles.legendText}>{isTe ? "సహజ వెంటిలేటర్" : "Ventilator (V)"}</Text>
+              <View style={[styles.legendBox, { backgroundColor: '#64748B', borderColor: '#475569' }]} />
+              <Text style={styles.legendText}>{isTe ? "Frosted వెంటిలేటర్" : "Frosted Ventilator (V)"}</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendBox, { backgroundColor: 'transparent', borderColor: '#D97706', borderStyle: 'dashed' }]} />
+              <View style={[styles.legendBox, { backgroundColor: 'transparent', borderColor: '#B45309', borderStyle: 'dashed' }]} />
               <Text style={styles.legendText}>{isTe ? "డోర్ స్వింగ్ ఆర్క్" : "Door Swing Arc"}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendLine, { borderColor: '#10B981', borderStyle: 'dashed' }]} />
-              <Text style={styles.legendText}>{isTe ? "నడక మార్గం" : "Circulation Pathway"}</Text>
             </View>
           </ScrollView>
         </View>
@@ -1293,6 +1807,14 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
     </View>
   );
 }
+
+const legendHeaderStyle = (scale) => {
+  return {
+    marginBottom: 4,
+    alignItems: 'center',
+    display: scale > 1.2 ? 'none' : 'flex', // hides legend header to conserve vertical space under high zoom factors
+  };
+};
 
 // Circulation line helper
 const RenderCirculationLine = ({ x1, y1, x2, y2, pxPerFt, footLeft, footTop }) => {
@@ -1323,20 +1845,43 @@ const RenderCirculationLine = ({ x1, y1, x2, y2, pxPerFt, footLeft, footTop }) =
   );
 };
 
+const RenderNodeDot = ({ x, y, pxPerFt, footLeft, footTop }) => {
+  const x_px = footLeft + x * pxPerFt;
+  const y_px = footTop + y * pxPerFt;
+  return (
+    <View style={{
+      position: 'absolute',
+      left: x_px - 4,
+      top: y_px - 4,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: '#10B981',
+      borderWidth: 1.5,
+      borderColor: '#FFFFFF',
+      zIndex: 26,
+    }} />
+  );
+};
+
 const getStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A', // Premium midnight theme for the workspace
+    backgroundColor: '#F8FAFC', // Premium light mode architectural paper background
   },
   draftToolbar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     borderBottomWidth: 1.2,
-    borderBottomColor: '#1E293B',
+    borderBottomColor: '#CBD5E1',
     height: 48,
+    backgroundColor: '#F1F5F9',
+    width: '100%',
+  },
+  toolbarScrollContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    backgroundColor: '#0F172A',
+    height: '100%',
+    gap: 8,
   },
   toolbarTitleBlock: {
     flexDirection: 'row',
@@ -1350,9 +1895,9 @@ const getStyles = (theme) => StyleSheet.create({
     backgroundColor: '#10B981',
   },
   toolbarTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#F8FAFC',
+    color: '#1E293B',
     letterSpacing: 0.5,
   },
   toolbarActions: {
@@ -1361,14 +1906,14 @@ const getStyles = (theme) => StyleSheet.create({
     gap: 6,
   },
   toolBtn: {
-    width: 28,
-    height: 28,
+    width: 26,
+    height: 26,
     borderRadius: 4,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#CBD5E1',
   },
   activeToolBtn: {
     backgroundColor: theme.colors.accent,
@@ -1377,13 +1922,32 @@ const getStyles = (theme) => StyleSheet.create({
   toolbarDivider: {
     width: 1,
     height: 18,
-    backgroundColor: '#334155',
+    backgroundColor: '#CBD5E1',
     marginHorizontal: 4,
   },
   canvasContainer: {
-    backgroundColor: '#0B0F19', // Deep dark blueprint background
+    backgroundColor: '#F8FAFC', 
     position: 'relative',
     overflow: 'hidden',
+    width: '100%',
+  },
+  scrollV: {
+    flex: 1,
+    width: '100%',
+  },
+  scrollContentV: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  scrollH: {
+    flexDirection: 'row',
+    width: '100%',
+  },
+  scrollContentH: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
   },
   horizontalRuler: {
     position: 'absolute',
@@ -1392,7 +1956,7 @@ const getStyles = (theme) => StyleSheet.create({
     right: 0,
     height: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
+    borderBottomColor: '#CBD5E1',
   },
   rulerTickH: {
     position: 'absolute',
@@ -1404,12 +1968,12 @@ const getStyles = (theme) => StyleSheet.create({
   tickLineH: {
     width: 1.2,
     height: 6,
-    backgroundColor: '#475569',
+    backgroundColor: '#94A3B8',
   },
   rulerText: {
     fontSize: 7,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: '#64748B',
     marginTop: 2,
   },
   verticalRuler: {
@@ -1419,7 +1983,7 @@ const getStyles = (theme) => StyleSheet.create({
     bottom: 0,
     width: 20,
     borderRightWidth: 1,
-    borderRightColor: '#1E293B',
+    borderRightColor: '#CBD5E1',
   },
   rulerTickV: {
     position: 'absolute',
@@ -1432,10 +1996,9 @@ const getStyles = (theme) => StyleSheet.create({
   tickLineV: {
     height: 1.2,
     width: 6,
-    backgroundColor: '#475569',
+    backgroundColor: '#94A3B8',
   },
   draftSheet: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1446,9 +2009,9 @@ const getStyles = (theme) => StyleSheet.create({
   },
   plotBoundary: {
     borderWidth: 2,
-    borderColor: theme.colors.accent,
+    borderColor: '#D97706',
     borderStyle: 'dashed',
-    backgroundColor: '#0F172A', // Dark drafting paper style
+    backgroundColor: '#FFFFFF', // White interior plot drawing
   },
   cadGridBackdrop: {
     position: 'absolute',
@@ -1462,27 +2025,44 @@ const getStyles = (theme) => StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 0.5,
-    backgroundColor: 'rgba(56, 189, 248, 0.08)', // Cyber cyan grids
+    backgroundColor: 'rgba(148, 163, 184, 0.15)', // Soft blue-grey grid lines
   },
   cadGridH: {
     position: 'absolute',
     left: 0,
     right: 0,
     height: 0.5,
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    backgroundColor: 'rgba(148, 163, 184, 0.15)',
+  },
+  quadrantBadge: {
+    position: 'absolute',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 0.8,
+    borderColor: '#D97706',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  quadrantText: {
+    fontSize: 6,
+    fontWeight: '900',
+    color: '#D97706',
   },
   asphaltRoad: {
     position: 'absolute',
-    backgroundColor: '#1E293B', 
+    backgroundColor: '#E2E8F0', // Soft concrete road background
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 5,
-    borderColor: '#334155',
+    borderColor: '#CBD5E1',
     borderWidth: 1,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   horizAsphalt: {
     left: 0,
@@ -1496,25 +2076,24 @@ const getStyles = (theme) => StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    height: 3,
-    borderWidth: 1,
-    borderColor: '#F59E0B', 
+    height: 2,
+    borderWidth: 0.8,
+    borderColor: '#FFFFFF', 
     borderStyle: 'dashed',
   },
   roadLaneDividerV: {
     position: 'absolute',
     top: 0,
     bottom: 0,
-    width: 3,
-    borderWidth: 1,
-    borderColor: '#F59E0B',
+    width: 2,
+    borderWidth: 0.8,
+    borderColor: '#FFFFFF',
     borderStyle: 'dashed',
   },
   asphaltRoadText: {
-    fontSize: 6.8,
     fontWeight: '900',
-    color: '#F8FAFC',
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    color: '#475569',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     paddingHorizontal: 6,
     paddingVertical: 1.5,
     borderRadius: 2,
@@ -1522,14 +2101,10 @@ const getStyles = (theme) => StyleSheet.create({
   },
   buildingFootprintWalls: {
     position: 'absolute',
-    borderWidth: 1,
-    borderColor: '#1E293B',
     overflow: 'visible',
   },
   draftRoomBox: {
     position: 'absolute',
-    borderWidth: 1.2,
-    backgroundColor: '#111827', // Deep room fills
     overflow: 'hidden',
   },
   roomTextCentering: {
@@ -1545,12 +2120,12 @@ const getStyles = (theme) => StyleSheet.create({
   roomLabelText: {
     fontSize: 7.5,
     fontWeight: '800',
-    color: '#F8FAFC',
+    color: '#1E293B',
     textAlign: 'center',
   },
   roomSizeText: {
     fontSize: 6,
-    color: '#94A3B8',
+    color: '#475569',
     marginTop: 1,
     fontWeight: '600',
   },
@@ -1559,7 +2134,7 @@ const getStyles = (theme) => StyleSheet.create({
     top: 12,
     right: 12,
     alignItems: 'center',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
     borderColor: theme.colors.accent, 
     borderRadius: 20,
@@ -1569,7 +2144,7 @@ const getStyles = (theme) => StyleSheet.create({
     justifyContent: 'center',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
   },
@@ -1581,14 +2156,14 @@ const getStyles = (theme) => StyleSheet.create({
   },
   statusFooter: {
     fontSize: 9.5,
-    color: '#94A3B8',
+    color: '#475569',
     height: 28,
     lineHeight: 28,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#E2E8F0',
     textAlign: 'center',
     fontWeight: '700',
     borderTopWidth: 1,
-    borderTopColor: '#1E293B',
+    borderTopColor: '#CBD5E1',
   },
   dimLineRow: {
     position: 'absolute',
@@ -1602,20 +2177,20 @@ const getStyles = (theme) => StyleSheet.create({
     flex: 1,
     height: 0.8,
     borderWidth: 0.5,
-    borderColor: theme.colors.accent,
+    borderColor: '#D97706',
     borderStyle: 'dashed',
   },
   dimArrowText: {
     fontSize: 7,
-    color: theme.colors.accent,
+    color: '#D97706',
     lineHeight: 8,
   },
   dimValueText: {
     fontSize: 8,
     fontWeight: '800',
-    color: theme.colors.accent,
+    color: '#D97706',
     paddingHorizontal: 3,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
   },
   dimLineCol: {
     position: 'absolute',
@@ -1629,27 +2204,27 @@ const getStyles = (theme) => StyleSheet.create({
     flex: 1,
     width: 0.8,
     borderWidth: 0.5,
-    borderColor: theme.colors.accent,
+    borderColor: '#D97706',
     borderStyle: 'dashed',
   },
   dimArrowTextCol: {
     fontSize: 7,
-    color: theme.colors.accent,
+    color: '#D97706',
     lineHeight: 8,
   },
   dimValueTextCol: {
     fontSize: 8,
     fontWeight: '800',
-    color: theme.colors.accent,
+    color: '#D97706',
     paddingVertical: 2,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
     textAlign: 'center',
   },
   stairsBlueprintBlock: {
     position: 'absolute',
     borderWidth: 1.2,
-    borderColor: '#475569',
-    backgroundColor: '#1E293B',
+    borderColor: '#94A3B8',
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 12,
@@ -1658,13 +2233,13 @@ const getStyles = (theme) => StyleSheet.create({
     width: '100%',
     height: '20%',
     borderBottomWidth: 0.8,
-    borderBottomColor: '#475569',
+    borderBottomColor: '#CBD5E1',
   },
   sumpBlueprintBlock: {
     position: 'absolute',
     borderWidth: 1.2,
     borderColor: '#0284C7',
-    backgroundColor: '#0C4A6E',
+    backgroundColor: '#E0F2FE',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 2,
@@ -1681,7 +2256,7 @@ const getStyles = (theme) => StyleSheet.create({
     height: 16,
     borderRadius: 8,
     borderWidth: 1.2,
-    borderColor: '#38BDF8',
+    borderColor: '#0284C7',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1689,13 +2264,13 @@ const getStyles = (theme) => StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#38BDF8',
+    backgroundColor: '#0284C7',
   },
   septicBlueprintBlock: {
     position: 'absolute',
     borderWidth: 1.2,
-    borderColor: '#475569',
-    backgroundColor: '#1E293B',
+    borderColor: '#94A3B8',
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 2,
@@ -1704,8 +2279,8 @@ const getStyles = (theme) => StyleSheet.create({
   outsideWcBlock: {
     position: 'absolute',
     borderWidth: 1.2,
-    borderColor: '#475569',
-    backgroundColor: '#1E293B',
+    borderColor: '#94A3B8',
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 12,
@@ -1713,7 +2288,7 @@ const getStyles = (theme) => StyleSheet.create({
   utilityTextTag: {
     fontSize: 5,
     fontWeight: '800',
-    color: '#94A3B8',
+    color: '#64748B',
     textAlign: 'center',
     marginTop: 2,
   },
@@ -1731,26 +2306,12 @@ const getStyles = (theme) => StyleSheet.create({
   winGlassCenterH: {
     width: '100%',
     height: 1,
-    backgroundColor: '#38BDF8',
+    backgroundColor: '#0EA5E9',
   },
   winGlassCenterV: {
     height: '100%',
     width: 1,
-    backgroundColor: '#38BDF8',
-  },
-  windowLabelTag: {
-    fontSize: 5.5,
-    fontWeight: '900',
-    color: '#38BDF8',
-    position: 'absolute',
-    bottom: -8,
-  },
-  exhaustIndicator: {
-    fontSize: 4.5,
-    fontWeight: '900',
-    color: '#EF4444',
-    position: 'absolute',
-    top: -8,
+    backgroundColor: '#0EA5E9',
   },
   entranceArrowContainer: {
     position: 'absolute',
@@ -1761,9 +2322,9 @@ const getStyles = (theme) => StyleSheet.create({
   entranceLabelTag: {
     fontSize: 5.5,
     fontWeight: '950',
-    color: '#A7F3D0',
+    color: '#065F46',
     marginTop: 1,
-    backgroundColor: '#064E3B',
+    backgroundColor: '#D1FAE5',
     borderWidth: 0.8,
     borderColor: '#059669',
     borderRadius: 3,
@@ -1771,9 +2332,17 @@ const getStyles = (theme) => StyleSheet.create({
     paddingVertical: 0.5,
     letterSpacing: 0.3,
   },
+  furnitureOverlayContainer: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
   bedFurniture: {
     position: 'absolute',
-    backgroundColor: '#78350F',
+    backgroundColor: '#FEF3C7',
     borderWidth: 1,
     borderColor: '#D97706',
     borderRadius: 2,
@@ -1789,7 +2358,7 @@ const getStyles = (theme) => StyleSheet.create({
   bedPillow: {
     width: '38%',
     height: 8,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FFFFFF',
     borderWidth: 0.8,
     borderColor: '#D97706',
     borderRadius: 1,
@@ -1802,7 +2371,7 @@ const getStyles = (theme) => StyleSheet.create({
   bedBlanket: {
     width: '100%',
     height: '40%',
-    backgroundColor: '#B45309',
+    backgroundColor: '#FEF3C7',
     opacity: 0.4,
     borderTopWidth: 0.8,
     borderColor: '#D97706',
@@ -1813,21 +2382,21 @@ const getStyles = (theme) => StyleSheet.create({
   },
   kitchenCounterV: {
     position: 'absolute',
-    backgroundColor: '#334155',
+    backgroundColor: '#E2E8F0',
     borderLeftWidth: 1,
-    borderColor: '#475569',
+    borderColor: '#CBD5E1',
   },
   kitchenCounterH: {
     position: 'absolute',
-    backgroundColor: '#334155',
+    backgroundColor: '#E2E8F0',
     borderTopWidth: 1,
-    borderColor: '#475569',
+    borderColor: '#CBD5E1',
   },
   cooktopStove: {
     position: 'absolute',
     width: 18,
     height: 12,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#334155',
     borderRadius: 2,
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -1839,16 +2408,16 @@ const getStyles = (theme) => StyleSheet.create({
     height: 4,
     borderRadius: 2,
     borderWidth: 0.8,
-    borderColor: '#EF4444',
-    backgroundColor: '#334155',
+    borderColor: '#F97316',
+    backgroundColor: '#1E293B',
   },
   kitchenSink: {
     position: 'absolute',
     width: 14,
     height: 14,
-    backgroundColor: '#475569',
+    backgroundColor: '#CBD5E1',
     borderWidth: 1,
-    borderColor: '#64748B',
+    borderColor: '#94A3B8',
     borderRadius: 1,
   },
   toiletCommode: {
@@ -1862,17 +2431,17 @@ const getStyles = (theme) => StyleSheet.create({
   toiletTank: {
     width: 12,
     height: 5,
-    backgroundColor: '#475569',
+    backgroundColor: '#E2E8F0',
     borderWidth: 1,
-    borderColor: '#64748B',
+    borderColor: '#CBD5E1',
     borderRadius: 1,
   },
   toiletBowl: {
     width: 10,
     height: 14,
-    backgroundColor: '#334155',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#64748B',
+    borderColor: '#CBD5E1',
     borderRadius: 5,
     marginTop: 1,
   },
@@ -1884,8 +2453,8 @@ const getStyles = (theme) => StyleSheet.create({
     height: 12,
     borderBottomLeftRadius: 10,
     borderWidth: 1,
-    borderColor: '#475569',
-    backgroundColor: '#334155',
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
   },
   sofaSectional: {
     position: 'absolute',
@@ -1893,14 +2462,14 @@ const getStyles = (theme) => StyleSheet.create({
     top: 4,
     bottom: 4,
     width: 14,
-    backgroundColor: '#475569',
+    backgroundColor: '#E2E8F0',
     borderRadius: 1,
   },
   sofaSeatLong: {
     width: '100%',
     height: '100%',
     borderRightWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#CBD5E1',
   },
   sofaSeatShort: {
     position: 'absolute',
@@ -1908,9 +2477,9 @@ const getStyles = (theme) => StyleSheet.create({
     top: 0,
     width: 20,
     height: 14,
-    backgroundColor: '#475569',
+    backgroundColor: '#E2E8F0',
     borderBottomWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#CBD5E1',
   },
   coffeeTable: {
     position: 'absolute',
@@ -1918,7 +2487,7 @@ const getStyles = (theme) => StyleSheet.create({
     top: 24,
     width: 18,
     height: 12,
-    backgroundColor: '#78350F',
+    backgroundColor: '#FEF3C7',
     borderWidth: 1.2,
     borderColor: '#D97706',
     borderRadius: 1,
@@ -1935,7 +2504,7 @@ const getStyles = (theme) => StyleSheet.create({
   diningTablePlate: {
     flex: 1,
     height: '100%',
-    backgroundColor: '#78350F',
+    backgroundColor: '#FEF3C7',
     borderRadius: 2,
     borderWidth: 1,
     borderColor: '#D97706',
@@ -1944,9 +2513,9 @@ const getStyles = (theme) => StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#475569',
+    backgroundColor: '#CBD5E1',
     borderWidth: 0.8,
-    borderColor: '#334155',
+    borderColor: '#94A3B8',
   },
   poojaPedestal: {
     position: 'absolute',
@@ -1954,7 +2523,7 @@ const getStyles = (theme) => StyleSheet.create({
     top: 4,
     width: 16,
     height: 16,
-    backgroundColor: '#78350F',
+    backgroundColor: '#FEF3C7',
     borderWidth: 1.2,
     borderColor: '#D97706',
     justifyContent: 'center',
@@ -1966,9 +2535,9 @@ const getStyles = (theme) => StyleSheet.create({
     bottom: 28,
     left: 0,
     right: 0,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#F1F5F9',
     borderTopWidth: 1.2,
-    borderColor: '#334155',
+    borderColor: '#CBD5E1',
     paddingVertical: 8,
     paddingHorizontal: 12,
     zIndex: 30,
@@ -1980,7 +2549,7 @@ const getStyles = (theme) => StyleSheet.create({
   legendTitle: {
     fontSize: 7.5,
     fontWeight: '850',
-    color: '#94A3B8',
+    color: '#475569',
     letterSpacing: 0.5,
   },
   legendContent: {
@@ -2007,6 +2576,6 @@ const getStyles = (theme) => StyleSheet.create({
   legendText: {
     fontSize: 7.2,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: '#475569',
   }
 });

@@ -53,16 +53,16 @@ export default function App() {
     dob: "25-07-1996",
     nakshatra: "Mrigashira",
     rashi: "Gemini",
-    siteLength: "50",
+    siteLength: "40",
     siteWidth: "30",
     siteFacing: "North",
     roadDirection: "North Road",
     mainDoorDirection: "North",
     compassAngle: "0",
-    eastOpen: "4",
+    eastOpen: "2",
     westOpen: "2",
-    northOpen: "5",
-    southOpen: "3",
+    northOpen: "4",
+    southOpen: "4",
     stairsLocation: "Southwest",
     sumpLocation: "Northeast",
     boreLocation: "Northeast",
@@ -70,13 +70,15 @@ export default function App() {
     outsideBtLocation: "Northwest",
     eventDate: "15-08-2026",
     customRooms: [
-      { id: "1", name: "Pooja Room", length: "8", width: "6" },
+      { id: "1", name: "Pooja Room", length: "6", width: "6" },
       { id: "2", name: "Kitchen", length: "10", width: "8" },
-      { id: "3", name: "Master Bedroom", length: "12", width: "10" },
-      { id: "4", name: "Bathroom/Toilet", length: "6", width: "6" },
-      { id: "5", name: "Dining Room", length: "10", width: "8" },
-      { id: "6", name: "Study Room", length: "8", width: "8" },
-      { id: "7", name: "Guest Room", length: "10", width: "8" }
+      { id: "3", name: "Master Bedroom", length: "12", width: "9" },
+      { id: "4", name: "Bathroom/Toilet 1", length: "6", width: "6" },
+      { id: "5", name: "Dining Room", length: "8", width: "8" },
+      { id: "6", name: "Study Room", length: "10", width: "8" },
+      { id: "7", name: "Guest Room", length: "10", width: "9" },
+      { id: "8", name: "Bathroom/Toilet 2", length: "6", width: "6" },
+      { id: "9", name: "Store Room", length: "8", width: "8" }
     ]
   });
 
