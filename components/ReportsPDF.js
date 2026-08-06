@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Dimensions, Platform } from 'react-native';
 import { lightTheme as staticTheme } from '../constants/theme';
 import { NAKSHATRAS, calculateTaraBalam, getPadamFromVarga, checkAyaVyayaYoni, generateBuildingSize } from '../constants/vastuData';
 import { Ionicons } from '@expo/vector-icons';
@@ -307,12 +307,21 @@ export default function ReportsPDF({ language, state, theme: propTheme }) {
       </View>
 
       {/* Selected Page visual area */}
-      <View style={styles.sheetWorkspace}>
-        {selectedPage === 1 && renderPage1()}
-        {selectedPage === 2 && renderPage2()}
-        {selectedPage === 3 && renderPage3()}
-        {selectedPage === 4 && renderPage4()}
-      </View>
+      {Platform.OS === 'web' ? (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.sheetWorkspace}>
+          {selectedPage === 1 && renderPage1()}
+          {selectedPage === 2 && renderPage2()}
+          {selectedPage === 3 && renderPage3()}
+          {selectedPage === 4 && renderPage4()}
+        </ScrollView>
+      ) : (
+        <View style={styles.sheetWorkspace}>
+          {selectedPage === 1 && renderPage1()}
+          {selectedPage === 2 && renderPage2()}
+          {selectedPage === 3 && renderPage3()}
+          {selectedPage === 4 && renderPage4()}
+        </View>
+      )}
 
     </View>
   );
@@ -322,7 +331,8 @@ const getStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-    paddingBottom: 110,
+    paddingBottom: Platform.OS === 'web' ? 24 : 110,
+    ...(Platform.OS === 'web' ? { height: '100%', maxHeight: '100%', overflow: 'hidden' } : {}),
   },
   thumbnailsBar: {
     flexDirection: 'row',

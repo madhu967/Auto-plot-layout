@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, ScrollView, Platform } from 'react-native';
 import { lightTheme as staticTheme } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -54,7 +54,9 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
   const footL = siteL - northO - southO;
 
   // Scaled dimensions to occupy almost the entire screen (increased scale from 0.80 to 0.94)
-  const availableCanvasWidth = SCREEN_WIDTH - 32;
+  // On desktop view, account for the left navigation sidebar (240px) and right property panel (280px)
+  const isDesktop = SCREEN_WIDTH > 990;
+  const availableCanvasWidth = isDesktop ? SCREEN_WIDTH - 520 - 32 : SCREEN_WIDTH - 32;
   const plotWidth = (siteW / maxDim) * (availableCanvasWidth * 0.94);
   const plotHeight = (siteL / maxDim) * (availableCanvasWidth * 0.94);
   
@@ -1635,7 +1637,7 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
       </View>
 
       {/* Screen-filling drawing canvas (wrapped in horizontal/vertical ScrollView for zoom & scroll support) */}
-      <View style={[styles.canvasContainer, { height: CANVAS_HEIGHT }]}>
+      <View style={[styles.canvasContainer, Platform.OS === 'web' ? { flex: 1 } : { height: CANVAS_HEIGHT }]}>
         <ScrollView style={styles.scrollV} contentContainerStyle={styles.scrollContentV}>
           <ScrollView horizontal style={styles.scrollH} contentContainerStyle={styles.scrollContentH}>
             

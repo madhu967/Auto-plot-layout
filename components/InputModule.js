@@ -9,7 +9,8 @@ import {
   Modal, 
   FlatList,
   Dimensions,
-  Image
+  Image,
+  Platform
 } from 'react-native';
 import { lightTheme as staticTheme } from '../constants/theme';
 import { NAKSHATRAS, calculateOptimalRoomDimensions } from '../constants/vastuData';
@@ -964,7 +965,7 @@ const getStyles = (theme) => StyleSheet.create({
   stampLeftBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1.4,
+    flex: Platform.OS === 'web' ? 1.0 : 1.4,
     height: 38,
   },
   stampNameText: {
@@ -975,8 +976,8 @@ const getStyles = (theme) => StyleSheet.create({
   stampDimContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    flex: 1.6,
+    gap: Platform.OS === 'web' ? 8 : 6,
+    flex: Platform.OS === 'web' ? 1.8 : 1.6,
     justifyContent: 'flex-end',
   },
   stampCoordInput: {
@@ -986,7 +987,7 @@ const getStyles = (theme) => StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: 4,
     height: 32,
-    width: 48,
+    width: Platform.OS === 'web' ? 80 : 48,
     backgroundColor: '#FFFFFF',
   },
   stampCoordLabel: {

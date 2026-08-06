@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { lightTheme } from '../constants/theme';
 import { NAKSHATRAS, TELUGU_VARGA, PADAS_32, PANCHABHOOTA_CHART } from '../constants/vastuData';
 
@@ -18,27 +18,29 @@ export default function MasterTables({ language, theme: propTheme }) {
   };
 
   const renderNakshatrasTable = () => (
-    <ScrollView horizontal style={styles.tableScroll} showsHorizontalScrollIndicator={false}>
-      <View style={styles.table}>
-        <View style={styles.tableHeaderRow}>
-          <Text style={[styles.headerCell, { width: 50 }]}>S.No</Text>
-          <Text style={[styles.headerCell, { width: 120 }]}>{isTe ? "నక్షత్రం" : "Nakshatra"}</Text>
-          <Text style={[styles.headerCell, { width: 120 }]}>{isTe ? "రాశి" : "Rashi"}</Text>
-        </View>
-        {NAKSHATRAS.map((item, idx) => (
-          <View 
-            key={item.id} 
-            style={[
-              styles.tableDataRow, 
-              { backgroundColor: idx % 2 === 0 ? activeTheme.colors.divider : activeTheme.colors.surface }
-            ]}
-          >
-            <Text style={[styles.dataCell, { width: 50, textAlign: 'center' }]}>{item.id}</Text>
-            <Text style={[styles.dataCell, { width: 120, fontWeight: '700' }]}>{isTe ? item.nameTe : item.nameEn}</Text>
-            <Text style={[styles.dataCell, { width: 120 }]}>{isTe ? item.rashiTe : item.rashiEn}</Text>
+    <ScrollView style={styles.verticalScroll} showsVerticalScrollIndicator={false}>
+      <ScrollView horizontal style={styles.tableScroll} showsHorizontalScrollIndicator={false}>
+        <View style={styles.table}>
+          <View style={styles.tableHeaderRow}>
+            <Text style={[styles.headerCell, { width: 50 }]}>S.No</Text>
+            <Text style={[styles.headerCell, { width: 120 }]}>{isTe ? "నక్షత్రం" : "Nakshatra"}</Text>
+            <Text style={[styles.headerCell, { width: 120 }]}>{isTe ? "రాశి" : "Rashi"}</Text>
           </View>
-        ))}
-      </View>
+          {NAKSHATRAS.map((item, idx) => (
+            <View 
+              key={item.id} 
+              style={[
+                styles.tableDataRow, 
+                { backgroundColor: idx % 2 === 0 ? activeTheme.colors.divider : activeTheme.colors.surface }
+              ]}
+            >
+              <Text style={[styles.dataCell, { width: 50, textAlign: 'center' }]}>{item.id}</Text>
+              <Text style={[styles.dataCell, { width: 120, fontWeight: '700' }]}>{isTe ? item.nameTe : item.nameEn}</Text>
+              <Text style={[styles.dataCell, { width: 120 }]}>{isTe ? item.rashiTe : item.rashiEn}</Text>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
     </ScrollView>
   );
 
@@ -168,6 +170,7 @@ const getStyles = (theme) => StyleSheet.create({
     flex: 1,
     padding: 12,
     backgroundColor: theme.colors.background,
+    ...(Platform.OS === 'web' ? { height: '100%', maxHeight: '100%', overflow: 'hidden' } : {}),
   },
   subTabRow: {
     flexDirection: 'row',
@@ -203,6 +206,7 @@ const getStyles = (theme) => StyleSheet.create({
     padding: 12,
     borderWidth: 1.2,
     borderColor: theme.colors.border,
+    ...(Platform.OS === 'web' ? { overflow: 'hidden' } : {}),
   },
   tableScroll: {
     flex: 1,
