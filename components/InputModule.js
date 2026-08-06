@@ -41,7 +41,7 @@ const ROOM_NAMES = [
 
 const DIRECTION_OPTIONS = ["East", "West", "North", "South", "Northeast", "Southeast", "Southwest", "Northwest"];
 
-export default function InputModule({ language, state, updateState, theme: propTheme }) {
+export default function InputModule({ language, state, updateState, theme: propTheme, onCalculate }) {
   const theme = propTheme || staticTheme;
   const styles = getStyles(theme);
   const isTe = language === 'te';
@@ -576,6 +576,23 @@ export default function InputModule({ language, state, updateState, theme: propT
         </View>
       </View>
 
+      {/* Premium Calculate Action Button */}
+      <TouchableOpacity 
+        style={styles.premiumCalculateBtn} 
+        onPress={() => {
+          if (onCalculate) {
+            onCalculate();
+          }
+        }}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="calculator-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+        <Text style={styles.premiumCalculateBtnText}>
+          {isTe ? "లెక్కించి 2D ప్లాన్ చూపించు" : "CALCULATE & GENERATE 2D PLAN"}
+        </Text>
+        <Ionicons name="chevron-forward-outline" size={16} color="#FFFFFF" style={{ marginLeft: 8 }} />
+      </TouchableOpacity>
+
       {/* DROPDOWN PICKER */}
       <Modal visible={pickerVisible} transparent={true} animationType="fade" onRequestClose={() => setPickerVisible(false)}>
         <View style={styles.modalOverlay}>
@@ -1096,5 +1113,29 @@ const getStyles = (theme) => StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     fontWeight: '600',
+  },
+  premiumCalculateBtn: {
+    backgroundColor: '#070262', // Deep premium indigo
+    borderWidth: 2,
+    borderColor: '#FBBF24', // Gold border
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 26,
+    shadowColor: '#070262',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  premiumCalculateBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '800',
+    letterSpacing: 1.0,
   }
 });

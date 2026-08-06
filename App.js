@@ -23,6 +23,7 @@ export default function App() {
   const [language, setLanguage] = useState('en'); 
   const [activeTheme, setActiveTheme] = useState('light'); 
   const [activeTab, setActiveTab] = useState('input'); 
+  const [hasCalculated, setHasCalculated] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [dimensions, setDimensions] = useState({
     width: Dimensions.get('window').width,
@@ -95,10 +96,19 @@ export default function App() {
 
   const loadTestCase = (testData) => {
     setState(testData);
+    setHasCalculated(true);
     if (testData.customRooms.length > 0) {
       setSelectedRoomId(testData.customRooms[0].id);
     }
     setActiveTab('canvas'); 
+  };
+
+  const handleTabPress = (tabId) => {
+    if (tabId !== 'input' && !hasCalculated) {
+      alert(isTe ? "దయచేసి ముందుగా ప్లాన్ లెక్కించడానికి 'Calculate & Generate' బటన్ నొక్కండి." : "Please click the 'Calculate & Generate 2D Plan' button on the input tab first.");
+      return;
+    }
+    setActiveTab(tabId);
   };
 
   const isTe = language === 'te';
@@ -115,7 +125,18 @@ export default function App() {
   const renderActiveComponent = () => {
     switch (activeTab) {
       case 'input':
-        return <InputModule language={language} state={state} updateState={updateState} theme={currentTheme} />;
+        return (
+          <InputModule 
+            language={language} 
+            state={state} 
+            updateState={updateState} 
+            theme={currentTheme} 
+            onCalculate={() => {
+              setHasCalculated(true);
+              setActiveTab('canvas');
+            }} 
+          />
+        );
       case 'core':
         return <CoreEngine language={language} state={state} theme={currentTheme} />;
       case 'canvas':
@@ -125,7 +146,18 @@ export default function App() {
       case 'tables':
         return <MasterTables language={language} theme={currentTheme} />;
       default:
-        return <InputModule language={language} state={state} updateState={updateState} theme={currentTheme} />;
+        return (
+          <InputModule 
+            language={language} 
+            state={state} 
+            updateState={updateState} 
+            theme={currentTheme} 
+            onCalculate={() => {
+              setHasCalculated(true);
+              setActiveTab('canvas');
+            }} 
+          />
+        );
     }
   };
 
@@ -261,19 +293,20 @@ export default function App() {
           <ScrollView style={{ flex: 1 }}>
             {navItems.map((item) => {
               const isActive = activeTab === item.id;
+              const isLocked = item.id !== 'input' && !hasCalculated;
               return (
                 <TouchableOpacity 
                   key={item.id}
                   style={[styles.sidebarBtn, isActive && [styles.sidebarBtnActive, { borderLeftColor: currentTheme.colors.accent }]]}
-                  onPress={() => setActiveTab(item.id)}
-                  activeOpacity={0.8}
+                  onPress={() => handleTabPress(item.id)}
+                  activeOpacity={isLocked ? 0.5 : 0.8}
                 >
                   <Ionicons 
-                    name={item.icon} 
+                    name={isLocked ? "lock-closed-outline" : item.icon} 
                     size={18} 
-                    color={isActive ? "#FFFFFF" : "rgba(255,255,255,0.6)"} 
+                    color={isActive ? "#FFFFFF" : isLocked ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.6)"} 
                   />
-                  <Text style={[styles.sidebarBtnText, isActive && styles.sidebarBtnTextActive]}>
+                  <Text style={[styles.sidebarBtnText, isActive && styles.sidebarBtnTextActive, isLocked && { color: "rgba(255,255,255,0.25)" }]}>
                     {isTe ? item.labelTe : item.labelEn}
                   </Text>
                 </TouchableOpacity>
@@ -286,7 +319,7 @@ export default function App() {
         <View style={[styles.centerWorkspace, { backgroundColor: currentTheme.colors.background }]}>
           {renderActiveComponent()}
         </View>
-
+ 
         {/* Right Property Inspector Panel */}
         {renderRightPropertyPanel()}
       </View>
@@ -308,20 +341,21 @@ export default function App() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bottomNavScroll}>
             {navItems.map((tab) => {
               const isActive = activeTab === tab.id;
+              const isLocked = tab.id !== 'input' && !hasCalculated;
               const activeColor = activeTheme === 'dark' ? '#FBBF24' : currentTheme.colors.primary;
               return (
                 <TouchableOpacity 
                   key={tab.id}
                   style={[styles.tabButton, isActive && { borderBottomColor: currentTheme.colors.accent }]}
-                  onPress={() => setActiveTab(tab.id)}
-                  activeOpacity={0.8}
+                  onPress={() => handleTabPress(tab.id)}
+                  activeOpacity={isLocked ? 0.5 : 0.8}
                 >
                   <Ionicons 
-                    name={tab.icon} 
+                    name={isLocked ? "lock-closed-outline" : tab.icon} 
                     size={18} 
-                    color={isActive ? activeColor : currentTheme.colors.textSecondary} 
+                    color={isActive ? activeColor : isLocked ? "rgba(0,0,0,0.15)" : currentTheme.colors.textSecondary} 
                   />
-                  <Text style={[styles.tabLabel, { color: isActive ? activeColor : currentTheme.colors.textSecondary }, isActive && { fontWeight: '800' }]}>
+                  <Text style={[styles.tabLabel, { color: isActive ? activeColor : isLocked ? "rgba(0,0,0,0.2)" : currentTheme.colors.textSecondary }, isActive && { fontWeight: '800' }]}>
                     {isTe ? tab.labelTe : tab.labelEn}
                   </Text>
                 </TouchableOpacity>
