@@ -688,8 +688,34 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
   const otherPrivate = otherRooms.filter(r => isPrivateRoom(r.name));
   const otherPublic = otherRooms.filter(r => !isPrivateRoom(r.name));
 
+  // Fallback cell allocator to prevent any room from being discarded/missing
+  const assignToFewestRoomsCell = (parsed) => {
+    let bestR = -1;
+    let bestC = -1;
+    let minRooms = Infinity;
+    
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        const key = `${r},${c}`;
+        if (reservedCells.includes(key)) continue; // Skip Hall/entrance cells
+        
+        const numRooms = grid[r][c].length;
+        if (numRooms < minRooms) {
+          minRooms = numRooms;
+          bestR = r;
+          bestC = c;
+        }
+      }
+    }
+    
+    if (bestR !== -1 && bestC !== -1) {
+      grid[bestR][bestC].push(parsed);
+      return true;
+    }
+    return false;
+  };
+
   const privateSlots = [[0, 0], [1, 0], [2, 1], [0, 1]];
-  let privIdx = 0;
   otherPrivate.forEach(room => {
     const parsed = {
       id: room.id,
@@ -697,15 +723,18 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
       reqW: parseFloat(room.width) || 10,
       reqH: parseFloat(room.length) || 10,
     };
-    while (privIdx < privateSlots.length) {
-      const [r, c] = privateSlots[privIdx];
+    let placed = false;
+    for (const [r, c] of privateSlots) {
       const key = `${r},${c}`;
       if (!reservedCells.includes(key) && grid[r][c].length === 0) {
         grid[r][c].push(parsed);
-        privIdx++;
+        placed = true;
         break;
       }
-      privIdx++;
+    }
+    // Fallback if preferred slots are full
+    if (!placed) {
+      assignToFewestRoomsCell(parsed);
     }
   });
 
@@ -739,6 +768,10 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
         }
         if (placed) break;
       }
+    }
+    // Fallback if all slots are full
+    if (!placed) {
+      assignToFewestRoomsCell(parsed);
     }
   });
 
