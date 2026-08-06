@@ -25,8 +25,9 @@ export default function VastuHeader({
   const appSubtitle = isTe ? "స్వయం చాలిత వాస్తు ప్రణాళికా వ్యవస్థ" : "Architectural Vastu Auto-Layout";
 
   return (
-    <View style={[styles.headerContainer, { backgroundColor: currentTheme.colors.primary }]}>
-      <View style={styles.headerBody}>
+    <View style={[styles.headerOuter, { backgroundColor: currentTheme.colors.accent }]}>
+      <View style={[styles.headerContainer, { backgroundColor: currentTheme.colors.primary }]}>
+        <View style={styles.headerBody}>
         {/* Left Side: Brand Logo and Title */}
         <View style={styles.leftSection}>
           <View style={[styles.logoBadge, { borderColor: currentTheme.colors.accent }]}>
@@ -83,24 +84,39 @@ export default function VastuHeader({
           )}
         </View>
       </View>
-      {/* Unique Golden structural accent line */}
-      <View style={[styles.goldAccentLine, { backgroundColor: currentTheme.colors.accent }]} />
+    </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerContainer: {
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 44 : (Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 16),
+  headerOuter: {
+    paddingBottom: 4.5,
+    paddingHorizontal: 2.5,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    overflow: 'hidden',
     zIndex: 100,
     position: 'relative',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  headerContainer: {
+    paddingHorizontal: 18,
+    paddingTop: Platform.OS === 'ios' ? 48 : (Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 4 : 20),
+    paddingBottom: 8,
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
+    overflow: 'hidden',
   },
   headerBody: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    height: 64,
+    height: 76,
   },
   leftSection: {
     flexDirection: 'row',
@@ -193,8 +209,10 @@ const styles = StyleSheet.create({
   goldAccentLine: {
     position: 'absolute',
     bottom: 0,
-    left: 0,
-    right: 0,
-    height: 3,
+    left: 2.5,
+    right: 2.5,
+    height: 4.5,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
   }
 });
