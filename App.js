@@ -8,7 +8,8 @@ import {
   TouchableOpacity, 
   Dimensions, 
   StatusBar,
-  Platform
+  Platform,
+  Animated
 } from 'react-native';
 import { theme, lightTheme, darkTheme, crimsonTheme } from './constants/theme';
 import VastuHeader from './components/VastuHeader';
@@ -31,6 +32,18 @@ export default function App() {
     width: Dimensions.get('window').width,
     height: Dimensions.get('window').height
   });
+
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+  const [sidebarWidthAnim] = useState(new Animated.Value(72));
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    Animated.timing(sidebarWidthAnim, {
+      toValue: isSidebarExpanded ? 240 : 72,
+      duration: 220,
+      useNativeDriver: false,
+    }).start();
+  }, [isSidebarExpanded]);
 
   const [onboardingState, setOnboardingState] = useState('loading'); // 'loading', 'slides', 'transitioning', 'none'
 
@@ -329,46 +342,95 @@ export default function App() {
   // DESKTOP LAYOUT (SPLIT THREE PANEL PANELS)
   // ----------------------------------------------------
   const renderDesktopLayout = () => {
+    // Responsive horizontal padding removed from outer workspace to let footer span full width
+    let webHorizontalPadding = 0;
+
     return (
       <View style={[styles.desktopMainContainer, { backgroundColor: currentTheme.colors.background }]}>
-        {/* Left Navigation Sidebar */}
-        <View style={[styles.leftSidebar, { backgroundColor: currentTheme.colors.primary, borderRightColor: currentTheme.colors.primaryDark }]}>
-          <View style={[styles.leftSidebarHeader, { borderBottomColor: 'rgba(255,255,255,0.08)' }]}>
-            <Text style={styles.menuTitleText}>{isTe ? "నావిగేషన్" : "PROJECT SHEETS"}</Text>
-          </View>
-          
-          <ScrollView style={{ flex: 1 }}>
-            {navItems.map((item) => {
-              const isActive = activeTab === item.id;
-              const isLocked = item.id !== 'input' && !hasCalculated;
-              return (
-                <TouchableOpacity 
-                  key={item.id}
-                  style={[styles.sidebarBtn, isActive && [styles.sidebarBtnActive, { borderLeftColor: currentTheme.colors.accent }]]}
-                  onPress={() => handleTabPress(item.id)}
-                  activeOpacity={isLocked ? 0.5 : 0.8}
-                >
-                  <Ionicons 
-                    name={isLocked ? "lock-closed-outline" : item.icon} 
-                    size={18} 
-                    color={isActive ? "#FFFFFF" : isLocked ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.6)"} 
-                  />
-                  <Text style={[styles.sidebarBtnText, isActive && styles.sidebarBtnTextActive, isLocked && { color: "rgba(255,255,255,0.25)" }]}>
-                    {isTe ? item.labelTe : item.labelEn}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
+        {/* Left Navigation Sidebar (Animated Width) - Rendered ONLY in Desktop App viewports, hidden on website viewports */}
+        {Platform.OS !== 'web' && (
+          <Animated.View style={[
+            styles.leftSidebar, 
+            { 
+              width: sidebarWidthAnim, 
+              backgroundColor: currentTheme.colors.surface, 
+              borderRightColor: currentTheme.colors.border 
+            }
+          ]}>
+            {/* Sidebar Header with Menu icon toggle */}
+            <View style={[
+              styles.leftSidebarHeader, 
+              { 
+                borderBottomColor: currentTheme.colors.border,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: isSidebarExpanded ? 'space-between' : 'center',
+                paddingHorizontal: isSidebarExpanded ? 16 : 0,
+              }
+            ]}>
+              {isSidebarExpanded && (
+                <Text style={[styles.menuTitleText, { color: currentTheme.colors.textSecondary }]}>
+                  {isTe ? "నావిగేషన్" : "PROJECT SHEETS"}
+                </Text>
+              )}
+              <TouchableOpacity 
+                onPress={() => setIsSidebarExpanded(!isSidebarExpanded)} 
+                style={[styles.menuIconButton, { padding: 6 }]}
+              >
+                <Ionicons name="menu-outline" size={22} color={currentTheme.colors.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+              {navItems.map((item) => {
+                const isActive = activeTab === item.id;
+                const isLocked = item.id !== 'input' && !hasCalculated;
+                
+                // Dynamic themes styling
+                const activeBg = currentTheme.colors.primaryLight;
+                const activeColor = activeTheme === 'dark' ? currentTheme.colors.accent : currentTheme.colors.primary;
+                const inactiveColor = currentTheme.colors.textSecondary;
+                const lockedColor = activeTheme === 'dark' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.45)';
+                
+                return (
+                  <TouchableOpacity 
+                    key={item.id}
+                    style={[
+                      styles.sidebarBtn, 
+                      isActive && [styles.sidebarBtnActive, { backgroundColor: activeBg, borderLeftColor: currentTheme.colors.accent }],
+                      !isSidebarExpanded && { justifyContent: 'center', paddingHorizontal: 0 }
+                    ]}
+                    onPress={() => handleTabPress(item.id)}
+                    activeOpacity={isLocked ? 0.5 : 0.8}
+                  >
+                    <Ionicons 
+                      name={isLocked ? "lock-closed-outline" : item.icon} 
+                      size={18} 
+                      color={isActive ? activeColor : isLocked ? lockedColor : inactiveColor} 
+                    />
+                    {isSidebarExpanded && (
+                      <Text style={[
+                        styles.sidebarBtnText, 
+                        { color: isActive ? activeColor : isLocked ? lockedColor : inactiveColor },
+                        isActive && { color: activeColor, fontWeight: '700' }
+                      ]}>
+                        {isTe ? item.labelTe : item.labelEn}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </Animated.View>
+        )}
 
         {/* Center content Area */}
         <View style={[styles.centerWorkspace, { backgroundColor: currentTheme.colors.background }]}>
           {renderActiveComponent()}
         </View>
  
-        {/* Right Property Inspector Panel */}
-        {renderRightPropertyPanel()}
+        {/* Right Property Inspector Panel - Rendered ONLY in Desktop App viewports, hidden on website viewports */}
+        {Platform.OS !== 'web' && renderRightPropertyPanel()}
       </View>
     );
   };
@@ -378,66 +440,72 @@ export default function App() {
   // ----------------------------------------------------
   const renderMobileLayout = () => {
     const isWebOrWide = Platform.OS === 'web' || dimensions.width >= 480;
+    
+    // Responsive horizontal padding removed from outer workspace to let footer span full width
+    let webHorizontalPadding = 0;
+
     return (
       <View style={[styles.mainWrapper, { backgroundColor: currentTheme.colors.background }]}>
-        <View style={styles.contentContainer}>
+        <View style={[styles.contentContainer, { paddingBottom: Platform.OS === 'web' ? 0 : 84 }]}>
           {renderActiveComponent()}
         </View>
 
         {/* Bottom Tab navigation */}
-        <View style={[styles.bottomNavContainer, { backgroundColor: currentTheme.colors.surface, borderTopColor: currentTheme.colors.border }]}>
-          {isWebOrWide ? (
-            <View style={styles.bottomNavFlex}>
-              {navItems.map((tab) => {
-                const isActive = activeTab === tab.id;
-                const isLocked = tab.id !== 'input' && !hasCalculated;
-                const activeColor = activeTheme === 'dark' ? '#FBBF24' : currentTheme.colors.primary;
-                return (
-                  <TouchableOpacity 
-                    key={tab.id}
-                    style={[styles.tabButtonFlex, isActive && { borderBottomColor: currentTheme.colors.accent }]}
-                    onPress={() => handleTabPress(tab.id)}
-                    activeOpacity={isLocked ? 0.5 : 0.8}
-                  >
-                    <Ionicons 
-                      name={isLocked ? "lock-closed-outline" : tab.icon} 
-                      size={18} 
-                      color={isActive ? activeColor : isLocked ? "rgba(0,0,0,0.15)" : currentTheme.colors.textSecondary} 
-                    />
-                    <Text style={[styles.tabLabel, { color: isActive ? activeColor : isLocked ? "rgba(0,0,0,0.2)" : currentTheme.colors.textSecondary }, isActive && { fontWeight: '800' }]}>
-                      {isTe ? tab.labelTe : tab.labelEn}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bottomNavScroll}>
-              {navItems.map((tab) => {
-                const isActive = activeTab === tab.id;
-                const isLocked = tab.id !== 'input' && !hasCalculated;
-                const activeColor = activeTheme === 'dark' ? '#FBBF24' : currentTheme.colors.primary;
-                return (
-                  <TouchableOpacity 
-                    key={tab.id}
-                    style={[styles.tabButton, isActive && { borderBottomColor: currentTheme.colors.accent }]}
-                    onPress={() => handleTabPress(tab.id)}
-                    activeOpacity={isLocked ? 0.5 : 0.8}
-                  >
-                    <Ionicons 
-                      name={isLocked ? "lock-closed-outline" : tab.icon} 
-                      size={18} 
-                      color={isActive ? activeColor : isLocked ? "rgba(0,0,0,0.15)" : currentTheme.colors.textSecondary} 
-                    />
-                    <Text style={[styles.tabLabel, { color: isActive ? activeColor : isLocked ? "rgba(0,0,0,0.2)" : currentTheme.colors.textSecondary }, isActive && { fontWeight: '800' }]}>
-                      {isTe ? tab.labelTe : tab.labelEn}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          )}
-        </View>
+        {Platform.OS !== 'web' && (
+          <View style={[styles.bottomNavContainer, { backgroundColor: currentTheme.colors.surface, borderTopColor: currentTheme.colors.border }]}>
+            {isWebOrWide ? (
+              <View style={styles.bottomNavFlex}>
+                {navItems.map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  const isLocked = tab.id !== 'input' && !hasCalculated;
+                  const activeColor = activeTheme === 'dark' ? '#FBBF24' : currentTheme.colors.primary;
+                  return (
+                    <TouchableOpacity 
+                      key={tab.id}
+                      style={[styles.tabButtonFlex, isActive && { borderBottomColor: currentTheme.colors.accent }]}
+                      onPress={() => handleTabPress(tab.id)}
+                      activeOpacity={isLocked ? 0.5 : 0.8}
+                    >
+                      <Ionicons 
+                        name={isLocked ? "lock-closed-outline" : tab.icon} 
+                        size={18} 
+                        color={isActive ? activeColor : isLocked ? "rgba(0,0,0,0.15)" : currentTheme.colors.textSecondary} 
+                      />
+                      <Text style={[styles.tabLabel, { color: isActive ? activeColor : isLocked ? "rgba(0,0,0,0.2)" : currentTheme.colors.textSecondary }, isActive && { fontWeight: '800' }]}>
+                        {isTe ? tab.labelTe : tab.labelEn}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bottomNavScroll}>
+                {navItems.map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  const isLocked = tab.id !== 'input' && !hasCalculated;
+                  const activeColor = activeTheme === 'dark' ? '#FBBF24' : currentTheme.colors.primary;
+                  return (
+                    <TouchableOpacity 
+                      key={tab.id}
+                      style={[styles.tabButton, isActive && { borderBottomColor: currentTheme.colors.accent }]}
+                      onPress={() => handleTabPress(tab.id)}
+                      activeOpacity={isLocked ? 0.5 : 0.8}
+                    >
+                      <Ionicons 
+                        name={isLocked ? "lock-closed-outline" : tab.icon} 
+                        size={18} 
+                        color={isActive ? activeColor : isLocked ? "rgba(0,0,0,0.15)" : currentTheme.colors.textSecondary} 
+                      />
+                      <Text style={[styles.tabLabel, { color: isActive ? activeColor : isLocked ? "rgba(0,0,0,0.2)" : currentTheme.colors.textSecondary }, isActive && { fontWeight: '800' }]}>
+                        {isTe ? tab.labelTe : tab.labelEn}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
+        )}
       </View>
     );
   };
@@ -467,6 +535,21 @@ export default function App() {
     <View style={[styles.container, { backgroundColor: currentTheme.colors.background }]}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
       
+      {Platform.OS === 'web' && (
+        <style>
+          {`
+            /* Hide scrollbars globally on web browser viewports */
+            ::-webkit-scrollbar {
+              display: none !important;
+            }
+            * {
+              -ms-overflow-style: none !important;
+              scrollbar-width: none !important;
+            }
+          `}
+        </style>
+      )}
+      
       {/* Top compact normal header */}
       <VastuHeader 
         language={language}
@@ -474,10 +557,80 @@ export default function App() {
         activeTheme={activeTheme}
         setActiveTheme={setActiveTheme}
         compassAngle={state.compassAngle}
+        showMenuButton={Platform.OS === 'web' && !isDesktop}
+        onMenuPress={() => setIsMobileDrawerOpen(true)}
+        activeTab={activeTab}
+        setActiveTab={handleTabPress}
+        navItems={navItems}
+        hasCalculated={hasCalculated}
+        isDesktop={isDesktop}
       />
 
       {/* Conditional Layout Rendering */}
       {isDesktop ? renderDesktopLayout() : renderMobileLayout()}
+
+      {/* Mobile Web Navigation Drawer Overlay */}
+      {Platform.OS === 'web' && !isDesktop && isMobileDrawerOpen && (
+        <React.Fragment>
+          {/* Backdrop */}
+          <TouchableOpacity 
+            activeOpacity={1}
+            style={styles.drawerBackdrop} 
+            onPress={() => setIsMobileDrawerOpen(false)}
+          />
+          {/* Drawer content */}
+          <View style={[styles.drawerContainer, { backgroundColor: currentTheme.colors.surface, borderRightColor: currentTheme.colors.border }]}>
+            <View style={[styles.drawerHeader, { borderBottomColor: currentTheme.colors.border }]}>
+              <Text style={[styles.drawerTitleText, { color: currentTheme.colors.text }]}>
+                {isTe ? "నావిగేషన్" : "PROJECT SHEETS"}
+              </Text>
+              <TouchableOpacity onPress={() => setIsMobileDrawerOpen(false)} style={styles.drawerCloseButton}>
+                <Ionicons name="close-outline" size={24} color={currentTheme.colors.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+              {navItems.map((item) => {
+                const isActive = activeTab === item.id;
+                const isLocked = item.id !== 'input' && !hasCalculated;
+                
+                const activeBg = currentTheme.colors.primaryLight;
+                const activeColor = activeTheme === 'dark' ? currentTheme.colors.accent : currentTheme.colors.primary;
+                const inactiveColor = currentTheme.colors.textSecondary;
+                const lockedColor = activeTheme === 'dark' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.45)';
+                
+                return (
+                  <TouchableOpacity 
+                    key={item.id}
+                    style={[
+                      styles.sidebarBtn, 
+                      isActive && [styles.sidebarBtnActive, { backgroundColor: activeBg, borderLeftColor: currentTheme.colors.accent }]
+                    ]}
+                    onPress={() => {
+                      handleTabPress(item.id);
+                      setIsMobileDrawerOpen(false);
+                    }}
+                    activeOpacity={isLocked ? 0.5 : 0.8}
+                  >
+                    <Ionicons 
+                      name={isLocked ? "lock-closed-outline" : item.icon} 
+                      size={18} 
+                      color={isActive ? activeColor : isLocked ? lockedColor : inactiveColor} 
+                    />
+                    <Text style={[
+                      styles.sidebarBtnText, 
+                      { color: isActive ? activeColor : isLocked ? lockedColor : inactiveColor },
+                      isActive && { color: activeColor, fontWeight: '700' }
+                    ]}>
+                      {isTe ? item.labelTe : item.labelEn}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </React.Fragment>
+      )}
 
     </View>
   );
@@ -493,21 +646,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   leftSidebar: {
-    width: 240,
-    backgroundColor: theme.colors.primary, // Dark primary background
+    height: '100%',
     borderRightWidth: 1.2,
-    borderRightColor: theme.colors.primaryDark,
   },
   leftSidebarHeader: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    height: 64,
+    borderBottomWidth: 1.2,
   },
   menuTitleText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#D2C9FF',
     letterSpacing: 0.8,
+  },
+  menuIconButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 6,
   },
   sidebarBtn: {
     flexDirection: 'row',
@@ -515,20 +669,17 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderLeftWidth: 3,
+    borderLeftWidth: 3.5,
     borderLeftColor: 'transparent',
   },
   sidebarBtnActive: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderLeftColor: theme.colors.accent,
+    borderLeftWidth: 3.5,
   },
   sidebarBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#D2C9FF',
   },
   sidebarBtnTextActive: {
-    color: '#FFFFFF',
     fontWeight: '700',
   },
   centerWorkspace: {
@@ -703,5 +854,41 @@ const styles = StyleSheet.create({
   activeTabLabel: {
     color: theme.colors.primary,
     fontWeight: '700',
+  },
+  drawerBackdrop: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    zIndex: 9998,
+  },
+  drawerContainer: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 280,
+    borderRightWidth: 1.2,
+    paddingVertical: 16,
+    zIndex: 9999,
+  },
+  drawerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingBottom: 16,
+    borderBottomWidth: 1.2,
+    marginBottom: 12,
+  },
+  drawerTitleText: {
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  drawerCloseButton: {
+    padding: 4,
   }
 });

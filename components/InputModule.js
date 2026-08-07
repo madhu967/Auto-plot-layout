@@ -15,6 +15,7 @@ import {
 import { lightTheme as staticTheme } from '../constants/theme';
 import { NAKSHATRAS, calculateOptimalRoomDimensions } from '../constants/vastuData';
 import { Ionicons } from '@expo/vector-icons';
+import VastuFooter from './VastuFooter';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -47,6 +48,7 @@ export default function InputModule({ language, state, updateState, theme: propT
   const styles = getStyles(theme);
   const isTe = language === 'te';
   const [sliderIndex, setSliderIndex] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
   const sliderWidth = SCREEN_WIDTH - 32;
 
   // Automatically calculate optimal, Vastu-compliant room dimensions when footprint or room count changes
@@ -115,7 +117,8 @@ export default function InputModule({ language, state, updateState, theme: propT
   ];
 
   const handleScroll = (event) => {
-    const slide = Math.round(event.nativeEvent.contentOffset.x / sliderWidth);
+    const activeWidth = containerWidth || sliderWidth;
+    const slide = Math.round(event.nativeEvent.contentOffset.x / activeWidth);
     if (slide !== sliderIndex) {
       setSliderIndex(slide);
     }
@@ -262,7 +265,15 @@ export default function InputModule({ language, state, updateState, theme: propT
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
 
       {/* SWIPEABLE IMAGE SLIDER */}
-      <View style={styles.sliderContainer}>
+      <View 
+        style={styles.sliderContainer}
+        onLayout={(e) => {
+          const w = e.nativeEvent.layout.width;
+          if (w > 0 && w !== containerWidth) {
+            setContainerWidth(w);
+          }
+        }}
+      >
         <ScrollView
           horizontal
           pagingEnabled
@@ -272,7 +283,7 @@ export default function InputModule({ language, state, updateState, theme: propT
           style={styles.sliderScroll}
         >
           {sliderImages.map((slide, idx) => (
-            <View key={idx} style={[styles.slideCard, { width: sliderWidth }]}>
+            <View key={idx} style={[styles.slideCard, { width: containerWidth || sliderWidth }]}>
               <Image source={{ uri: slide.url }} style={styles.slideImage} />
               <View style={styles.slideOverlay} />
               <View style={styles.slideTextContainer}>
@@ -669,6 +680,16 @@ export default function InputModule({ language, state, updateState, theme: propT
         </View>
       </Modal>
 
+      {/* Vastu Footer (Web only) */}
+      {Platform.OS === 'web' && (
+        <VastuFooter 
+          language={language}
+          theme={theme}
+          activeTheme={state.activeTheme || 'light'} 
+          style={{ marginHorizontal: -theme.spacing.gap, marginBottom: -110, marginTop: 40 }}
+        />
+      )}
+
     </ScrollView>
   );
 }
@@ -1057,7 +1078,7 @@ const getStyles = (theme) => StyleSheet.create({
     backgroundColor: theme.colors.divider,
   },
   sliderContainer: {
-    height: 180,
+    height: Platform.OS === 'web' ? 260 : 180,
     borderRadius: theme.radius.card,
     overflow: 'hidden',
     marginBottom: 20,
@@ -1068,7 +1089,7 @@ const getStyles = (theme) => StyleSheet.create({
     flex: 1,
   },
   slideCard: {
-    height: 180,
+    height: Platform.OS === 'web' ? 260 : 180,
     position: 'relative',
     overflow: 'hidden',
   },

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Dimensions
 import { lightTheme as staticTheme } from '../constants/theme';
 import { NAKSHATRAS, calculateTaraBalam, getPadamFromVarga, checkAyaVyayaYoni, generateBuildingSize } from '../constants/vastuData';
 import { Ionicons } from '@expo/vector-icons';
+import VastuFooter from './VastuFooter';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -313,6 +314,13 @@ export default function ReportsPDF({ language, state, theme: propTheme }) {
           {selectedPage === 2 && renderPage2()}
           {selectedPage === 3 && renderPage3()}
           {selectedPage === 4 && renderPage4()}
+          
+          <VastuFooter 
+            language={language}
+            theme={theme}
+            activeTheme={theme.colors.background === '#121212' ? 'dark' : (theme.colors.primary === '#990000' ? 'crimson' : 'light')} 
+            style={{ marginHorizontal: -16, marginBottom: -16, marginTop: 40 }}
+          />
         </ScrollView>
       ) : (
         <View style={styles.sheetWorkspace}>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { lightTheme } from '../constants/theme';
 import { NAKSHATRAS, TELUGU_VARGA, PADAS_32, PANCHABHOOTA_CHART } from '../constants/vastuData';
-
+import VastuFooter from './VastuFooter';
 export default function MasterTables({ language, theme: propTheme }) {
   const isTe = language === 'te';
   const [activeSubTab, setActiveSubTab] = useState(1);
@@ -137,8 +137,8 @@ export default function MasterTables({ language, theme: propTheme }) {
     </ScrollView>
   );
 
-  return (
-    <View style={styles.container}>
+  const renderMainContent = () => (
+    <>
       {/* Sub Tabs */}
       <View style={styles.subTabRow}>
         {[1, 2, 3, 4].map((id) => (
@@ -155,12 +155,28 @@ export default function MasterTables({ language, theme: propTheme }) {
       </View>
 
       {/* Main Table Card */}
-      <View style={styles.tableCard}>
+      <View style={[styles.tableCard, Platform.OS === 'web' && { flex: 0, minHeight: 450 }]}>
         {activeSubTab === 1 && renderNakshatrasTable()}
         {activeSubTab === 2 && renderTeluguVargaTable()}
         {activeSubTab === 3 && render32PadasTable()}
         {activeSubTab === 4 && renderPanchabhootaTable()}
       </View>
+    </>
+  );
+
+  return Platform.OS === 'web' ? (
+    <ScrollView style={styles.container} contentContainerStyle={{ padding: 12 }}>
+      {renderMainContent()}
+      <VastuFooter 
+        language={language}
+        theme={activeTheme}
+        activeTheme={activeTheme.colors.background === '#121212' ? 'dark' : (activeTheme.colors.primary === '#990000' ? 'crimson' : 'light')} 
+        style={{ marginHorizontal: -12, marginBottom: -12, marginTop: 40 }}
+      />
+    </ScrollView>
+  ) : (
+    <View style={styles.container}>
+      {renderMainContent()}
     </View>
   );
 }
@@ -170,7 +186,6 @@ const getStyles = (theme) => StyleSheet.create({
     flex: 1,
     padding: 12,
     backgroundColor: theme.colors.background,
-    ...(Platform.OS === 'web' ? { height: '100%', maxHeight: '100%', overflow: 'hidden' } : {}),
   },
   subTabRow: {
     flexDirection: 'row',
