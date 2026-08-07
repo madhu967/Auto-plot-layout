@@ -68,7 +68,7 @@ export default function App() {
     } catch (err) {
       console.log('Error saving onboarding storage:', err);
     }
-    setOnboardingState('transitioning');
+    setOnboardingState('none');
   };
 
   const handleFinishTransition = () => {

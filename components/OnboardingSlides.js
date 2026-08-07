@@ -28,10 +28,12 @@ export default function OnboardingSlides({
   const isTabletOrDesktop = windowWidth > 768;
 
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [foundationScaleX] = useState(new Animated.Value(0));
-  const [wallsScaleY] = useState(new Animated.Value(0));
-  const [roofTranslateY] = useState(new Animated.Value(-40));
-  const [roofOpacity] = useState(new Animated.Value(0));
+  const [lawnScaleX] = useState(new Animated.Value(0));
+  const [groundFloorScaleY] = useState(new Animated.Value(0));
+  const [firstFloorScaleY] = useState(new Animated.Value(0));
+  const [balconyScaleX] = useState(new Animated.Value(0));
+  const [roofScaleY] = useState(new Animated.Value(0));
+  const [treeScale] = useState(new Animated.Value(0));
   const [detailsScale] = useState(new Animated.Value(0));
   const [glowOpacity] = useState(new Animated.Value(0));
   const [textFadeAnim] = useState(new Animated.Value(0));
@@ -68,53 +70,68 @@ export default function OnboardingSlides({
     setIsTransitioning(true);
     
     // Reset all animated values
-    foundationScaleX.setValue(0);
-    wallsScaleY.setValue(0);
-    roofTranslateY.setValue(-40);
-    roofOpacity.setValue(0);
+    lawnScaleX.setValue(0);
+    groundFloorScaleY.setValue(0);
+    firstFloorScaleY.setValue(0);
+    balconyScaleX.setValue(0);
+    roofScaleY.setValue(0);
+    treeScale.setValue(0);
     detailsScale.setValue(0);
     glowOpacity.setValue(0);
     textFadeAnim.setValue(0);
     screenFadeAnim.setValue(1);
 
-    // Staggered timeline sequence representing "Building a House"
+    // Staggered timeline sequence representing "Building a Complex Modern Indian House"
     Animated.sequence([
-      // 1. Foundation baseline grows horizontally
-      Animated.timing(foundationScaleX, {
+      // 1. Foundation baseline lawn expands
+      Animated.timing(lawnScaleX, {
+        toValue: 1,
+        duration: 400,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      // 2. Ground floor structures lift up
+      Animated.timing(groundFloorScaleY, {
         toValue: 1,
         duration: 450,
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
-      // 2. Walls vertical growth (starts immediately after foundation)
-      Animated.timing(wallsScaleY, {
-        toValue: 1,
-        duration: 550,
-        easing: Easing.out(Easing.back(1)),
-        useNativeDriver: true,
-      }),
-      // 3. Roof drops down and fades in
+      // 3. First floor structure and balcony slab expand in parallel
       Animated.parallel([
-        Animated.timing(roofTranslateY, {
-          toValue: 0,
+        Animated.timing(firstFloorScaleY, {
+          toValue: 1,
           duration: 450,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
-        Animated.timing(roofOpacity, {
+        Animated.timing(balconyScaleX, {
           toValue: 1,
-          duration: 450,
+          duration: 350,
           useNativeDriver: true,
         })
       ]),
-      // 4. Doors & Windows pop up with a playful spring
+      // 4. Roof lines scale down and drop into place
+      Animated.timing(roofScaleY, {
+        toValue: 1,
+        duration: 450,
+        easing: Easing.out(Easing.back(0.8)),
+        useNativeDriver: true,
+      }),
+      // 5. Tree grows on the left side
+      Animated.spring(treeScale, {
+        toValue: 1,
+        friction: 6,
+        useNativeDriver: true,
+      }),
+      // 6. Arched doors, grid windows, chimney, glass railings pop up with spring bounce
       Animated.spring(detailsScale, {
         toValue: 1,
         friction: 5,
         tension: 40,
         useNativeDriver: true,
       }),
-      // 5. Final golden glow (Vastu blessing) and text fade-in
+      // 7. Golden aura pulse glow and setup text fade in
       Animated.parallel([
         Animated.timing(glowOpacity, {
           toValue: 1,
@@ -134,20 +151,20 @@ export default function OnboardingSlides({
       Animated.loop(
         Animated.sequence([
           Animated.timing(glowOpacity, {
-            toValue: 0.6,
-            duration: 1000,
+            toValue: 0.5,
+            duration: 1200,
             useNativeDriver: true,
           }),
           Animated.timing(glowOpacity, {
             toValue: 1,
-            duration: 1000,
+            duration: 1200,
             useNativeDriver: true,
           })
         ])
       ).start();
-    }, 2000);
+    }, 2800);
 
-    // Fade out overlay after 3.2 seconds and finalize redirect to home page
+    // Fade out overlay after 3.8 seconds and finalize redirect to home page
     setTimeout(() => {
       Animated.timing(screenFadeAnim, {
         toValue: 0,
@@ -156,7 +173,7 @@ export default function OnboardingSlides({
       }).start(() => {
         onFinish();
       });
-    }, 3200);
+    }, 3800);
   };
 
   React.useEffect(() => {
@@ -288,9 +305,28 @@ export default function OnboardingSlides({
   const currentData = slides[currentSlide];
 
   if (isTransitioning) {
-    const wallsTranslateY = wallsScaleY.interpolate({
+    // Ground floor heights: 70px -> translation 35px
+    const groundFloorTranslateY = groundFloorScaleY.interpolate({
       inputRange: [0, 1],
-      outputRange: [28, 0]
+      outputRange: [35, 0]
+    });
+
+    // First floor heights: 60px -> translation 30px
+    const firstFloorTranslateY = firstFloorScaleY.interpolate({
+      inputRange: [0, 1],
+      outputRange: [30, 0]
+    });
+
+    // Roof drops down from -45px
+    const mainRoofTranslateY = roofScaleY.interpolate({
+      inputRange: [0, 1],
+      outputRange: [-45, 0]
+    });
+
+    // Side roof wedge drops down from -25px
+    const sideRoofTranslateY = roofScaleY.interpolate({
+      inputRange: [0, 1],
+      outputRange: [-25, 0]
     });
 
     const glowScale = glowOpacity.interpolate({
@@ -315,16 +351,25 @@ export default function OnboardingSlides({
               }
             ]} />
 
-            {/* Triangular Roof */}
+            {/* Chimney structure on top roof */}
             <Animated.View style={[
-              styles.roofTriangle,
+              styles.houseChimney,
               {
-                opacity: roofOpacity,
-                transform: [{ translateY: roofTranslateY }]
+                opacity: roofScaleY,
+                transform: [{ translateY: mainRoofTranslateY }, { scale: detailsScale }]
               }
             ]} />
 
-            {/* Golden Star peak decoration */}
+            {/* Main Top Pitch Roof */}
+            <Animated.View style={[
+              styles.mainTopRoof,
+              {
+                opacity: roofScaleY,
+                transform: [{ translateY: mainRoofTranslateY }]
+              }
+            ]} />
+
+            {/* Peak Vastu Star on Top Roof */}
             <Animated.View style={[
               styles.roofStar,
               {
@@ -332,37 +377,100 @@ export default function OnboardingSlides({
                 transform: [{ scale: detailsScale }]
               }
             ]}>
-              <Ionicons name="star" size={18} color="#FBBF24" />
+              <Ionicons name="star" size={16} color="#FBBF24" />
             </Animated.View>
 
-            {/* Walls container (anchored at the bottom) */}
+            {/* Asymmetric First Floor Block */}
             <Animated.View style={[
-              styles.houseWalls,
+              styles.firstFloorBlock,
               {
                 transform: [
-                  { scaleY: wallsScaleY },
-                  { translateY: wallsTranslateY }
+                  { scaleY: firstFloorScaleY },
+                  { translateY: firstFloorTranslateY }
                 ]
               }
             ]}>
-              {/* Row containing Windows and Door */}
-              <View style={styles.houseDetailsRow}>
-                {/* Left Window */}
-                <Animated.View style={[styles.houseWindow, { transform: [{ scale: detailsScale }] }]} />
-                
-                {/* Center Door */}
-                <Animated.View style={[styles.houseDoor, { transform: [{ scale: detailsScale }] }]} />
-                
-                {/* Right Window */}
-                <Animated.View style={[styles.houseWindow, { transform: [{ scale: detailsScale }] }]} />
+              {/* First Floor Window */}
+              <Animated.View style={[styles.firstFloorWindow, { transform: [{ scale: detailsScale }] }]}>
+                <View style={styles.windowPanesH} />
+                <View style={styles.windowPanesV} />
+              </Animated.View>
+            </Animated.View>
+
+            {/* Modern Balcony Slab & Glass Railing */}
+            <Animated.View style={[
+              styles.balconySlab,
+              {
+                transform: [{ scaleX: balconyScaleX }]
+              }
+            ]}>
+              {/* Glass Railing Details */}
+              <Animated.View style={[
+                styles.balconyRailing,
+                {
+                  opacity: detailsScale,
+                  transform: [{ scaleY: detailsScale }]
+                }
+              ]}>
+                <View style={styles.railingBar} />
+                <View style={styles.railingBar} />
+                <View style={styles.railingBar} />
+              </Animated.View>
+            </Animated.View>
+
+            {/* Ground Floor Side Slanted Roof Wedge */}
+            <Animated.View style={[
+              styles.sideSlantedRoof,
+              {
+                opacity: roofScaleY,
+                transform: [{ translateY: sideRoofTranslateY }]
+              }
+            ]} />
+
+            {/* Ground Floor Block */}
+            <Animated.View style={[
+              styles.groundFloorBlock,
+              {
+                transform: [
+                  { scaleY: groundFloorScaleY },
+                  { translateY: groundFloorTranslateY }
+                ]
+              }
+            ]}>
+              {/* Double Doors and Ground Window */}
+              <View style={styles.groundDetailsRow}>
+                {/* Large Grid Window */}
+                <Animated.View style={[styles.groundWindow, { transform: [{ scale: detailsScale }] }]}>
+                  <View style={styles.windowPanesH} />
+                  <View style={styles.windowPanesV} />
+                </Animated.View>
+
+                {/* Arched Double Door */}
+                <Animated.View style={[styles.archedDoubleDoor, { transform: [{ scale: detailsScale }] }]}>
+                  <View style={styles.doorHandleLeft} />
+                  <View style={styles.doorHandleRight} />
+                </Animated.View>
               </View>
             </Animated.View>
 
-            {/* Foundation Line */}
+            {/* Landscaping Tree on Left Side */}
+            <Animated.View style={[
+              styles.landscapingTree,
+              {
+                transform: [{ scale: treeScale }]
+              }
+            ]}>
+              {/* Trunk */}
+              <View style={styles.treeTrunk} />
+              {/* Leaves circles */}
+              <View style={styles.treeLeaves} />
+            </Animated.View>
+
+            {/* Ground Baseline (Lawn/Patio Line) */}
             <Animated.View style={[
               styles.houseFoundation,
               {
-                transform: [{ scaleX: foundationScaleX }]
+                transform: [{ scaleX: lawnScaleX }]
               }
             ]} />
 
@@ -858,79 +966,214 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   houseCanvas: {
-    width: 160,
-    height: 160,
+    width: 240,
+    height: 240,
     justifyContent: 'flex-end',
     alignItems: 'center',
     position: 'relative',
   },
   houseGlow: {
     position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: 'rgba(251, 191, 36, 0.1)',
-    bottom: 5,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(251, 191, 36, 0.07)',
+    bottom: 10,
   },
-  roofTriangle: {
+  houseChimney: {
+    width: 14,
+    height: 26,
+    borderWidth: 2.5,
+    borderColor: '#070262',
+    backgroundColor: '#FBBF24',
+    position: 'absolute',
+    bottom: 148,
+    left: 52,
+  },
+  mainTopRoof: {
     width: 0,
     height: 0,
-    borderLeftWidth: 48,
-    borderRightWidth: 48,
+    borderLeftWidth: 54,
+    borderRightWidth: 54,
     borderBottomWidth: 32,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
     borderBottomColor: '#070262',
     position: 'absolute',
-    bottom: 58,
+    bottom: 135,
+    left: 40,
   },
   roofStar: {
     position: 'absolute',
-    bottom: 90,
+    bottom: 165,
+    left: 86,
     zIndex: 10,
   },
-  houseWalls: {
-    width: 82,
-    height: 56,
+  firstFloorBlock: {
+    width: 90,
+    height: 60,
+    borderWidth: 3.5,
+    borderColor: '#070262',
+    borderBottomWidth: 0,
+    backgroundColor: '#F1F3F5',
+    position: 'absolute',
+    bottom: 75,
+    left: 45,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  firstFloorWindow: {
+    width: 28,
+    height: 28,
+    borderWidth: 2.5,
+    borderColor: '#070262',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 4,
+    position: 'relative',
+  },
+  windowPanesH: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '48%',
+    height: 2,
+    backgroundColor: '#070262',
+  },
+  windowPanesV: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: '48%',
+    width: 2,
+    backgroundColor: '#070262',
+  },
+  balconySlab: {
+    width: 55,
+    height: 6,
+    backgroundColor: '#FBBF24',
+    borderWidth: 2.5,
+    borderColor: '#070262',
+    position: 'absolute',
+    bottom: 75,
+    left: 30,
+    zIndex: 10,
+  },
+  balconyRailing: {
+    width: 48,
+    height: 16,
+    borderLeftWidth: 2,
+    borderRightWidth: 2,
+    borderTopWidth: 2,
+    borderColor: '#070262',
+    position: 'absolute',
+    bottom: 6,
+    left: 3,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 2,
+  },
+  railingBar: {
+    width: 2,
+    height: '100%',
+    backgroundColor: '#070262',
+  },
+  sideSlantedRoof: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 40,
+    borderRightWidth: 0,
+    borderBottomWidth: 18,
+    borderLeftColor: 'transparent',
+    borderBottomColor: '#070262',
+    position: 'absolute',
+    bottom: 75,
+    right: 15,
+  },
+  groundFloorBlock: {
+    width: 140,
+    height: 70,
     borderWidth: 3.5,
     borderColor: '#070262',
     borderBottomWidth: 0,
     backgroundColor: '#F9FAFB',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 5,
     position: 'absolute',
-    bottom: 4,
+    bottom: 5,
+    right: 15,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 12,
   },
-  houseDetailsRow: {
+  groundDetailsRow: {
     flexDirection: 'row',
     width: '100%',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
   },
-  houseWindow: {
-    width: 14,
-    height: 14,
-    borderWidth: 2,
+  groundWindow: {
+    width: 32,
+    height: 32,
+    borderWidth: 2.5,
     borderColor: '#070262',
     backgroundColor: '#FFFFFF',
-    borderRadius: 3,
-    marginBottom: 14,
+    borderRadius: 4,
+    marginBottom: 12,
+    position: 'relative',
   },
-  houseDoor: {
-    width: 20,
-    height: 30,
-    borderWidth: 2,
+  archedDoubleDoor: {
+    width: 36,
+    height: 46,
+    borderWidth: 2.5,
     borderColor: '#070262',
     backgroundColor: '#FBBF24',
     borderBottomWidth: 0,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  doorHandleLeft: {
+    width: 2,
+    height: 8,
+    backgroundColor: '#070262',
+    alignSelf: 'center',
+    marginRight: 1,
+  },
+  doorHandleRight: {
+    width: 2,
+    height: 8,
+    backgroundColor: '#070262',
+    alignSelf: 'center',
+    marginLeft: 1,
+  },
+  landscapingTree: {
+    position: 'absolute',
+    bottom: 5,
+    left: 10,
+    width: 30,
+    height: 50,
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  treeTrunk: {
+    width: 4,
+    height: 24,
+    backgroundColor: '#070262',
+  },
+  treeLeaves: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 3,
+    borderColor: '#070262',
+    backgroundColor: '#10B981',
+    position: 'absolute',
+    top: 0,
   },
   houseFoundation: {
-    width: 112,
-    height: 4,
+    width: 200,
+    height: 5,
     backgroundColor: '#070262',
-    borderRadius: 2,
+    borderRadius: 3,
     position: 'absolute',
     bottom: 0,
   },
