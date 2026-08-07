@@ -19,6 +19,7 @@ import ReportsPDF from './components/ReportsPDF';
 import MasterTables from './components/MasterTables';
 import { checkAyaVyayaYoni } from './constants/vastuData';
 import { Ionicons } from '@expo/vector-icons';
+import OnboardingSlides from './components/OnboardingSlides';
 
 export default function App() {
   const [language, setLanguage] = useState('en'); 
@@ -30,6 +31,49 @@ export default function App() {
     width: Dimensions.get('window').width,
     height: Dimensions.get('window').height
   });
+
+  const [onboardingState, setOnboardingState] = useState('loading'); // 'loading', 'slides', 'transitioning', 'none'
+
+  // Check if user has seen onboarding previously
+  useEffect(() => {
+    try {
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+        const hasSeen = localStorage.getItem('hasSeenOnboarding');
+        if (hasSeen === 'true') {
+          setOnboardingState('transitioning');
+        } else {
+          setOnboardingState('slides');
+        }
+      } else {
+        // Fallback for native devices or sandboxed environments
+        if (global.__hasSeenOnboarding) {
+          setOnboardingState('transitioning');
+        } else {
+          setOnboardingState('slides');
+        }
+      }
+    } catch (err) {
+      console.log('Error checking onboarding storage:', err);
+      setOnboardingState('slides');
+    }
+  }, []);
+
+  const handleFinishOnboarding = () => {
+    try {
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('hasSeenOnboarding', 'true');
+      } else {
+        global.__hasSeenOnboarding = true;
+      }
+    } catch (err) {
+      console.log('Error saving onboarding storage:', err);
+    }
+    setOnboardingState('transitioning');
+  };
+
+  const handleFinishTransition = () => {
+    setOnboardingState('none');
+  };
 
   // Track resizing for responsive layouts (Web browser resize support)
   useEffect(() => {
@@ -397,6 +441,27 @@ export default function App() {
       </View>
     );
   };
+
+  if (onboardingState === 'loading') {
+    return (
+      <View style={[styles.container, { backgroundColor: currentTheme.colors.background }]} />
+    );
+  }
+
+  if (onboardingState === 'slides' || onboardingState === 'transitioning') {
+    return (
+      <View style={[styles.container, { backgroundColor: '#FFFFFF' }]}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
+        <OnboardingSlides 
+          language={language}
+          setLanguage={setLanguage}
+          theme={currentTheme}
+          autoStartTransition={onboardingState === 'transitioning'}
+          onFinish={onboardingState === 'slides' ? handleFinishOnboarding : handleFinishTransition}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.colors.background }]}>
