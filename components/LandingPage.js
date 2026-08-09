@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import VastuFooter from './VastuFooter';
 import SmartLayoutSection from './SmartLayoutSection';
+import WorkflowCarousel from './PeopleCarousel';
 
 export default function LandingPage({ onGetStarted, theme, renderInputs, language, scrollToInputsOnMount }) {
   const [windowWidth, setWindowWidth] = useState(Dimensions.get('window').width);
@@ -220,6 +221,9 @@ export default function LandingPage({ onGetStarted, theme, renderInputs, languag
 
         {/* Smart Layout Generation Section */}
         <SmartLayoutSection theme={activeTheme} language={language} />
+
+        {/* Workflow Carousel Section */}
+        <WorkflowCarousel theme={activeTheme} language={language} />
 
         {/* 3. Vastu Planner Input Details Form (Positioned below Mockup cards) */}
         {renderInputs && (
