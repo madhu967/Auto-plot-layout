@@ -41,7 +41,7 @@ export default function VastuFooter({ language, theme: propTheme, activeTheme, s
   }, []);
 
   const isMobileWeb = windowWidth < 768;
-  const footerPaddingHorizontal = isMobileWeb ? 16 : 48;
+  const footerPaddingHorizontal = isMobileWeb ? 16 : 24;
 
   return (
     <footer 
@@ -53,8 +53,8 @@ export default function VastuFooter({ language, theme: propTheme, activeTheme, s
         borderTop: `1px solid ${footerBorder}`,
         paddingLeft: `${footerPaddingHorizontal}px`,
         paddingRight: `${footerPaddingHorizontal}px`,
-        paddingTop: isMobileWeb ? '12px' : '16px',
-        paddingBottom: '24px',
+        paddingTop: isMobileWeb ? '36px' : '48px',
+        paddingBottom: '32px',
         boxSizing: 'border-box',
         fontFamily: 'System, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         ...customMarginStyle
@@ -86,157 +86,164 @@ export default function VastuFooter({ language, theme: propTheme, activeTheme, s
         </defs>
       </svg>
 
-      {/* Main Grid Content */}
+      {/* Inner centered grid wrapper for structured grid alignment */}
       <div 
-        style={{
-          display: 'flex',
-          flexDirection: isMobileWeb ? 'column' : 'row',
-          flexWrap: 'wrap',
-          justifyContent: 'space-between',
-          position: 'relative',
-          zIndex: 2,
-          gap: isMobileWeb ? '28px' : '40px'
+        style={{ 
+          maxWidth: '1140px', 
+          margin: '0 auto', 
+          width: '100%', 
+          position: 'relative', 
+          zIndex: 2 
         }}
       >
-        {/* Brand Column */}
-        <div style={{ flex: isMobileWeb ? '1' : '1.4', minWidth: '240px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-            <VastuLogo size={32} />
-            <span style={{ fontSize: '18px', fontWeight: '800', color: footerTitle, letterSpacing: '0.5px' }}>
-              {isTe ? "వాస్తు సర్వస్వం" : "Vastu Sarvaswam"}
-            </span>
+        {/* Main Grid Content */}
+        <div 
+          style={{
+            display: 'flex',
+            flexDirection: isMobileWeb ? 'column' : 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            gap: isMobileWeb ? '28px' : '40px'
+          }}
+        >
+          {/* Brand Column */}
+          <div style={{ flex: isMobileWeb ? '1' : '1.4', minWidth: '240px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+              <VastuLogo size={32} />
+              <span style={{ fontSize: '18px', fontWeight: '800', color: footerTitle, letterSpacing: '0.5px' }}>
+                {isTe ? "వాస్తు సర్వస్వం" : "Vastu Sarvaswam"}
+              </span>
+            </div>
+            <p style={{ fontSize: '13px', lineHeight: '20px', color: footerText, margin: '6px 0 0 0', maxWidth: '320px' }}>
+              {isTe 
+                ? "వాస్తు సర్వస్వం అనేది వేద వాస్తు శాస్త్ర మరియు ఆయ-వ్యయ గణనలతో కూడిన ఉచిత మరియు స్వయం చాలిత లేఅవుట్ ప్లానర్."
+                : "Vastu Sarvaswam is a free and open-source Vastu Auto-Layout system with Vedic Aya calculations and optimal plotting."}
+            </p>
           </div>
-          <p style={{ fontSize: '13px', lineHeight: '20px', color: footerText, margin: '6px 0 0 0', maxWidth: '320px' }}>
-            {isTe 
-              ? "వాస్తు సర్వస్వం అనేది వేద వాస్తు శాస్త్ర మరియు ఆయ-వ్యయ గణనలతో కూడిన ఉచిత మరియు స్వయం చాలిత లేఅవుట్ ప్లానర్."
-              : "Vastu Sarvaswam is a free and open-source Vastu Auto-Layout system with Vedic Aya calculations and optimal plotting."}
-          </p>
+
+          {/* Company Links Column */}
+          <div style={{ flex: isMobileWeb ? '1' : '0.8', minWidth: '150px' }}>
+            <h2 style={{ fontSize: '14px', fontWeight: '600', color: footerTitle, marginBottom: '14px', marginTop: 0 }}>
+              {isTe ? "కంపెనీ" : "Company"}
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {['About us', 'Careers', 'Contact us', 'Privacy policy'].map((link, idx) => {
+                const labelTe = ['మా గురించి', 'ఉద్యోగాలు', 'సంప్రదించండి', 'గోప్యతా విధానం'][idx];
+                return (
+                  <a 
+                    key={idx} 
+                    href="#" 
+                    style={{ 
+                      fontSize: '13px', 
+                      color: footerText, 
+                      textDecoration: 'none',
+                      transition: 'color 0.2s',
+                      width: 'fit-content'
+                    }}
+                    onMouseOver={(e) => e.target.style.color = brandColor}
+                    onMouseOut={(e) => e.target.style.color = footerText}
+                  >
+                    {isTe ? labelTe : link}
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Subscribe Column */}
+          <div style={{ flex: isMobileWeb ? '1' : '1.2', minWidth: '240px' }}>
+            <h2 style={{ fontSize: '14px', fontWeight: '600', color: footerTitle, marginBottom: '14px', marginTop: 0 }}>
+              {isTe ? "వార్తాలేఖకు చందా" : "Subscribe to our newsletter"}
+            </h2>
+            <p style={{ fontSize: '13px', lineHeight: '18px', color: footerText, marginBottom: '14px', marginTop: 0, maxWidth: '360px' }}>
+              {isTe 
+                ? "తాజా వార్తలు, వాస్తు చిట్కాలు మరియు లేఅవుట్ వనరులు ప్రతి వారం మీ ఇన్‌బాక్స్‌కు పొందండి."
+                : "The latest news, Vastu tips, and layout resources, sent to your inbox weekly."}
+            </p>
+            <div 
+              style={{ 
+                display: 'flex', 
+                borderRadius: '6px', 
+                overflow: 'hidden', 
+                border: `1px solid ${footerBorder}`, 
+                height: '40px',
+                maxWidth: '320px'
+              }}
+            >
+              <input 
+                type="email" 
+                placeholder={isTe ? "ఈమెయిల్ నమోదు చేయండి" : "Enter your email"} 
+                style={{
+                  flex: 1,
+                  paddingLeft: '14px',
+                  paddingRight: '14px',
+                  fontSize: '13px',
+                  border: 'none',
+                  outline: 'none',
+                  color: footerTitle,
+                  backgroundColor: isDark ? '#1F1F1F' : '#F8FAFC'
+                }}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <button 
+                style={{
+                  paddingLeft: '18px',
+                  paddingRight: '18px',
+                  backgroundColor: brandColor,
+                  color: isDark ? '#000000' : '#FFFFFF',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'opacity 0.2s'
+                }}
+                onMouseOver={(e) => e.target.style.opacity = 0.9}
+                onMouseOut={(e) => e.target.style.opacity = 1}
+                onClick={handleSubscribe}
+              >
+                {isTe ? "చందా" : "Subscribe"}
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Company Links Column */}
-        <div style={{ flex: isMobileWeb ? '1' : '0.8', minWidth: '150px' }}>
-          <h2 style={{ fontSize: '14px', fontWeight: '600', color: footerTitle, marginBottom: '14px', marginTop: 0 }}>
-            {isTe ? "కంపెనీ" : "Company"}
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {['About us', 'Careers', 'Contact us', 'Privacy policy'].map((link, idx) => {
-              const labelTe = ['మా గురించి', 'ఉద్యోగాలు', 'సంప్రదించండి', 'గోప్యతా విధానం'][idx];
+        {/* Bottom Copyright and legal links */}
+        <div 
+          style={{
+            marginTop: isMobileWeb ? '28px' : '40px',
+            paddingTop: '20px',
+            borderTop: `1px solid ${footerBorder}`,
+            display: 'flex',
+            flexDirection: isMobileWeb ? 'column' : 'row',
+            justifyContent: 'space-between',
+            alignItems: isMobileWeb ? 'flex-start' : 'center',
+            gap: '12px'
+          }}
+        >
+          <p style={{ fontSize: '12px', color: footerText, margin: 0 }}>
+            {isTe 
+              ? `కాపీరైట్ 2026 © వాస్తు సర్వస్వం. అన్ని హక్కులు రిజర్వ్ చేయబడ్డాయి.` 
+              : `Copyright 2026 © Vastu Sarvaswam. All Rights Reserved.`}
+          </p>
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+            {['Privacy Policy', 'Terms of Service', 'Cookie Policy'].map((link, idx) => {
+              const labelTe = ['గోప్యతా పాలసీ', 'నిబంధనలు', 'కుకీ పాలసీ'][idx];
               return (
                 <a 
                   key={idx} 
                   href="#" 
                   style={{ 
-                    fontSize: '13px', 
+                    fontSize: '12px', 
                     color: footerText, 
-                    textDecoration: 'none',
-                    transition: 'color 0.2s',
-                    width: 'fit-content'
+                    textDecoration: 'none' 
                   }}
-                  onMouseOver={(e) => e.target.style.color = brandColor}
-                  onMouseOut={(e) => e.target.style.color = footerText}
                 >
                   {isTe ? labelTe : link}
                 </a>
               );
             })}
           </div>
-        </div>
-
-        {/* Subscribe Column */}
-        <div style={{ flex: isMobileWeb ? '1' : '1.2', minWidth: '240px' }}>
-          <h2 style={{ fontSize: '14px', fontWeight: '600', color: footerTitle, marginBottom: '14px', marginTop: 0 }}>
-            {isTe ? "వార్తాలేఖకు చందా" : "Subscribe to our newsletter"}
-          </h2>
-          <p style={{ fontSize: '13px', lineHeight: '18px', color: footerText, marginBottom: '14px', marginTop: 0, maxWidth: '360px' }}>
-            {isTe 
-              ? "తాజా వార్తలు, వాస్తు చిట్కాలు మరియు లేఅవుట్ వనరులు ప్రతి వారం మీ ఇన్‌బాక్స్‌కు పొందండి."
-              : "The latest news, Vastu tips, and layout resources, sent to your inbox weekly."}
-          </p>
-          <div 
-            style={{ 
-              display: 'flex', 
-              borderRadius: '6px', 
-              overflow: 'hidden', 
-              border: `1px solid ${footerBorder}`, 
-              height: '40px',
-              maxWidth: '320px'
-            }}
-          >
-            <input 
-              type="email" 
-              placeholder={isTe ? "ఈమెయిల్ నమోదు చేయండి" : "Enter your email"} 
-              style={{
-                flex: 1,
-                paddingLeft: '14px',
-                paddingRight: '14px',
-                fontSize: '13px',
-                border: 'none',
-                outline: 'none',
-                color: footerTitle,
-                backgroundColor: isDark ? '#1F1F1F' : '#F8FAFC'
-              }}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <button 
-              style={{
-                paddingLeft: '18px',
-                paddingRight: '18px',
-                backgroundColor: brandColor,
-                color: isDark ? '#000000' : '#FFFFFF',
-                fontSize: '13px',
-                fontWeight: '600',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'opacity 0.2s'
-              }}
-              onMouseOver={(e) => e.target.style.opacity = 0.9}
-              onMouseOut={(e) => e.target.style.opacity = 1}
-              onClick={handleSubscribe}
-            >
-              {isTe ? "చందా" : "Subscribe"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Copyright and legal links */}
-      <div 
-        style={{
-          marginTop: isMobileWeb ? '28px' : '40px',
-          paddingTop: '20px',
-          borderTop: `1px solid ${footerBorder}`,
-          display: 'flex',
-          flexDirection: isMobileWeb ? 'column' : 'row',
-          justifyContent: 'space-between',
-          alignItems: isMobileWeb ? 'flex-start' : 'center',
-          position: 'relative',
-          zIndex: 2,
-          gap: '12px'
-        }}
-      >
-        <p style={{ fontSize: '12px', color: footerText, margin: 0 }}>
-          {isTe 
-            ? `కాపీరైట్ 2026 © వాస్తు సర్వస్వం. అన్ని హక్కులు రిజర్వ్ చేయబడ్డాయి.` 
-            : `Copyright 2026 © Vastu Sarvaswam. All Rights Reserved.`}
-        </p>
-        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-          {['Privacy Policy', 'Terms of Service', 'Cookie Policy'].map((link, idx) => {
-            const labelTe = ['గోప్యతా పాలసీ', 'నిబంధనలు', 'కుకీ పాలసీ'][idx];
-            return (
-              <a 
-                key={idx} 
-                href="#" 
-                style={{ 
-                  fontSize: '12px', 
-                  color: footerText, 
-                  textDecoration: 'none' 
-                }}
-              >
-                {isTe ? labelTe : link}
-              </a>
-            );
-          })}
         </div>
       </div>
     </footer>

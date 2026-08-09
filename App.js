@@ -53,7 +53,7 @@ export default function App() {
   useEffect(() => {
     try {
       if (Platform.OS === 'web') {
-        setOnboardingState('none');
+        setOnboardingState('transitioning');
       } else {
         // Native mobile app onboarding slides logic (Unchanged)
         if (global.__hasSeenOnboarding) {
@@ -64,7 +64,7 @@ export default function App() {
       }
     } catch (err) {
       console.log('Error checking onboarding storage:', err);
-      setOnboardingState(Platform.OS === 'web' ? 'none' : 'slides');
+      setOnboardingState(Platform.OS === 'web' ? 'transitioning' : 'slides');
     }
   }, []);
 
