@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import VastuFooter from './VastuFooter';
+import SmartLayoutSection from './SmartLayoutSection';
 
 export default function LandingPage({ onGetStarted, theme, renderInputs, language, scrollToInputsOnMount }) {
   const [windowWidth, setWindowWidth] = useState(Dimensions.get('window').width);
@@ -213,6 +214,12 @@ export default function LandingPage({ onGetStarted, theme, renderInputs, languag
             '#10B981'
           )}
         </View>
+
+        {/* Section Divider */}
+        <View style={styles.divider} />
+
+        {/* Smart Layout Generation Section */}
+        <SmartLayoutSection theme={activeTheme} language={language} />
 
         {/* 3. Vastu Planner Input Details Form (Positioned below Mockup cards) */}
         {renderInputs && (
