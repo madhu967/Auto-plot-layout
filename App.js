@@ -21,11 +21,13 @@ import MasterTables from './components/MasterTables';
 import { checkAyaVyayaYoni } from './constants/vastuData';
 import { Ionicons } from '@expo/vector-icons';
 import OnboardingSlides from './components/OnboardingSlides';
+import LoginScreen from './components/LoginScreen';
+import LandingPage from './components/LandingPage';
 
 export default function App() {
   const [language, setLanguage] = useState('en'); 
   const [activeTheme, setActiveTheme] = useState('light'); 
-  const [activeTab, setActiveTab] = useState('input'); 
+  const [activeTab, setActiveTab] = useState(Platform.OS === 'web' ? 'home' : 'input'); 
   const [hasCalculated, setHasCalculated] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [dimensions, setDimensions] = useState({
@@ -47,18 +49,13 @@ export default function App() {
 
   const [onboardingState, setOnboardingState] = useState('loading'); // 'loading', 'slides', 'transitioning', 'none'
 
-  // Check if user has seen onboarding previously
+  // Check startup onboarding and auth state
   useEffect(() => {
     try {
-      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-        const hasSeen = localStorage.getItem('hasSeenOnboarding');
-        if (hasSeen === 'true') {
-          setOnboardingState('transitioning');
-        } else {
-          setOnboardingState('slides');
-        }
+      if (Platform.OS === 'web') {
+        setOnboardingState('none');
       } else {
-        // Fallback for native devices or sandboxed environments
+        // Native mobile app onboarding slides logic (Unchanged)
         if (global.__hasSeenOnboarding) {
           setOnboardingState('transitioning');
         } else {
@@ -67,7 +64,7 @@ export default function App() {
       }
     } catch (err) {
       console.log('Error checking onboarding storage:', err);
-      setOnboardingState('slides');
+      setOnboardingState(Platform.OS === 'web' ? 'none' : 'slides');
     }
   }, []);
 
@@ -164,7 +161,7 @@ export default function App() {
   };
 
   const handleTabPress = (tabId) => {
-    if (tabId !== 'input' && !hasCalculated) {
+    if (tabId !== 'input' && tabId !== 'login' && !hasCalculated) {
       alert(isTe ? "దయచేసి ముందుగా ప్లాన్ లెక్కించడానికి 'Calculate & Generate' బటన్ నొక్కండి." : "Please click the 'Calculate & Generate 2D Plan' button on the input tab first.");
       return;
     }
@@ -184,16 +181,54 @@ export default function App() {
 
   const renderActiveComponent = () => {
     switch (activeTab) {
+      case 'home':
       case 'input':
+        if (Platform.OS === 'web') {
+          return (
+            <LandingPage 
+              onGetStarted={(tabId = 'input') => {
+                setActiveTab(tabId);
+              }} 
+              theme={currentTheme}
+              language={language}
+              scrollToInputsOnMount={activeTab === 'input'}
+              renderInputs={
+                <InputModule 
+                  language={language} 
+                  state={state} 
+                  updateState={updateState} 
+                  theme={currentTheme} 
+                  setActiveTab={setActiveTab}
+                  onCalculate={() => {
+                    setHasCalculated(true);
+                    setActiveTab('canvas');
+                  }} 
+                  hideFooter={true}
+                />
+              }
+            />
+          );
+        } else {
+          return (
+            <InputModule 
+              language={language} 
+              state={state} 
+              updateState={updateState} 
+              theme={currentTheme} 
+              setActiveTab={setActiveTab}
+              onCalculate={() => {
+                setHasCalculated(true);
+                setActiveTab('canvas');
+              }} 
+            />
+          );
+        }
+      case 'login':
         return (
-          <InputModule 
-            language={language} 
-            state={state} 
-            updateState={updateState} 
-            theme={currentTheme} 
-            onCalculate={() => {
-              setHasCalculated(true);
-              setActiveTab('canvas');
+          <LoginScreen 
+            theme={currentTheme}
+            onLoginSuccess={() => {
+              setActiveTab('input');
             }} 
           />
         );
@@ -212,6 +247,7 @@ export default function App() {
             state={state} 
             updateState={updateState} 
             theme={currentTheme} 
+            setActiveTab={setActiveTab}
             onCalculate={() => {
               setHasCalculated(true);
               setActiveTab('canvas');
@@ -530,6 +566,8 @@ export default function App() {
       </View>
     );
   }
+
+
 
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.colors.background }]}>

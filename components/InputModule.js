@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -16,6 +16,7 @@ import { lightTheme as staticTheme } from '../constants/theme';
 import { NAKSHATRAS, calculateOptimalRoomDimensions } from '../constants/vastuData';
 import { Ionicons } from '@expo/vector-icons';
 import VastuFooter from './VastuFooter';
+import LandingPage from './LandingPage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -43,9 +44,10 @@ const ROOM_NAMES = [
 
 const DIRECTION_OPTIONS = ["East", "West", "North", "South", "Northeast", "Southeast", "Southwest", "Northwest"];
 
-export default function InputModule({ language, state, updateState, theme: propTheme, onCalculate }) {
+export default function InputModule({ language, state, updateState, theme: propTheme, setActiveTab, onCalculate, hideFooter = false }) {
   const theme = propTheme || staticTheme;
   const styles = getStyles(theme);
+  const scrollRef = useRef(null);
   const isTe = language === 'te';
   const [sliderIndex, setSliderIndex] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -262,50 +264,52 @@ export default function InputModule({ language, state, updateState, theme: propT
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content}>
 
-      {/* SWIPEABLE IMAGE SLIDER */}
-      <View 
-        style={styles.sliderContainer}
-        onLayout={(e) => {
-          const w = e.nativeEvent.layout.width;
-          if (w > 0 && w !== containerWidth) {
-            setContainerWidth(w);
-          }
-        }}
-      >
-        <ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          style={styles.sliderScroll}
+      {/* SWIPEABLE IMAGE SLIDER (NATIVE ONLY) */}
+      {Platform.OS !== 'web' && (
+        <View 
+          style={styles.sliderContainer}
+          onLayout={(e) => {
+            const w = e.nativeEvent.layout.width;
+            if (w > 0 && w !== containerWidth) {
+              setContainerWidth(w);
+            }
+          }}
         >
-          {sliderImages.map((slide, idx) => (
-            <View key={idx} style={[styles.slideCard, { width: containerWidth || sliderWidth }]}>
-              <Image source={{ uri: slide.url }} style={styles.slideImage} />
-              <View style={styles.slideOverlay} />
-              <View style={styles.slideTextContainer}>
-                <Text style={styles.slideTitle}>{isTe ? slide.titleTe : slide.titleEn}</Text>
-                <Text style={styles.slideDesc}>{isTe ? slide.descTe : slide.descEn}</Text>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            style={styles.sliderScroll}
+          >
+            {sliderImages.map((slide, idx) => (
+              <View key={idx} style={[styles.slideCard, { width: containerWidth || sliderWidth }]}>
+                <Image source={{ uri: slide.url }} style={styles.slideImage} />
+                <View style={styles.slideOverlay} />
+                <View style={styles.slideTextContainer}>
+                  <Text style={styles.slideTitle}>{isTe ? slide.titleTe : slide.titleEn}</Text>
+                  <Text style={styles.slideDesc}>{isTe ? slide.descTe : slide.descEn}</Text>
+                </View>
               </View>
-            </View>
-          ))}
-        </ScrollView>
-        {/* DOT CONTROLLER */}
-        <View style={styles.sliderDots}>
-          {sliderImages.map((_, idx) => (
-            <View 
-              key={idx} 
-              style={[
-                styles.sliderDot, 
-                sliderIndex === idx ? styles.activeDot : styles.inactiveDot
-              ]} 
-            />
-          ))}
+            ))}
+          </ScrollView>
+          {/* DOT CONTROLLER */}
+          <View style={styles.sliderDots}>
+            {sliderImages.map((_, idx) => (
+              <View 
+                key={idx} 
+                style={[
+                  styles.sliderDot, 
+                  sliderIndex === idx ? styles.activeDot : styles.inactiveDot
+                ]} 
+              />
+            ))}
+          </View>
         </View>
-      </View>
+      )}
       
       {/* GREETING CARD */}
       <View style={[styles.greetingCard, theme.elevation.soft]}>
@@ -681,7 +685,7 @@ export default function InputModule({ language, state, updateState, theme: propT
       </Modal>
 
       {/* Vastu Footer (Web only) */}
-      {Platform.OS === 'web' && (
+      {Platform.OS === 'web' && !hideFooter && (
         <VastuFooter 
           language={language}
           theme={theme}
@@ -701,7 +705,7 @@ const getStyles = (theme) => StyleSheet.create({
   },
   content: {
     padding: theme.spacing.gap,
-    paddingBottom: 110,
+    paddingBottom: Platform.OS === 'web' ? 16 : 110,
   },
   dimStepper: {
     flexDirection: 'row',

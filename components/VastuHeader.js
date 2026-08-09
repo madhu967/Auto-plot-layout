@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, useWindowDimensions, StatusBar } from 'react-native';
 import { theme as staticTheme, lightTheme, darkTheme, crimsonTheme } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
+import VastuLogo from './VastuLogo';
 
 export default function VastuHeader({
   language,
@@ -19,6 +20,7 @@ export default function VastuHeader({
 }) {
   const { width } = useWindowDimensions();
   const isTe = language === 'te';
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const themeConfigs = {
     light: lightTheme,
@@ -30,156 +32,188 @@ export default function VastuHeader({
   const appTitle = isTe ? "వాస్తు సర్వస్వం" : "Vastu Sarvaswam";
   const appSubtitle = isTe ? "స్వయం చాలిత వాస్తు ప్రణాళికా వ్యవస్థ" : "Architectural Vastu Auto-Layout";
 
-  // Web header properties
-  const webHeaderBg = currentTheme.colors.surface;
-  const webHeaderTextColor = currentTheme.colors.text;
-  const webHeaderBorderColor = currentTheme.colors.border;
-  const webLogoBadgeBg = activeTheme === 'dark' ? '#1F1F1F' : '#F3F4F6';
-  const webLogoBadgeBorder = activeTheme === 'dark' ? '#2D2D2D' : '#E5E7EB';
-
-  // Calculate responsive web header padding (very slight padding)
-  const webPaddingHorizontal = width >= 768 ? 20 : 12;
-
   if (Platform.OS === 'web') {
-    return (
-      <View style={[styles.webHeaderOuter, { borderColor: webHeaderBorderColor, backgroundColor: webHeaderBg }]}>
-        <View style={styles.webHeaderContainer}>
-          <View style={styles.webHeaderBody}>
-            
-            {/* Left Side: Brand Logo and Title */}
-            <View style={styles.webLeftSection}>
-              <View style={[styles.webLogoBadge, { backgroundColor: webLogoBadgeBg, borderColor: webLogoBadgeBorder }]}>
-                <Ionicons name="compass" size={20} color={currentTheme.colors.primary} />
-              </View>
-              <View style={styles.webTextGroup}>
-                <Text style={[styles.webTitleText, { color: webHeaderTextColor }]}>{appTitle}</Text>
-                <Text style={[styles.webSubtitleText, { color: currentTheme.colors.textSecondary }]}>{appSubtitle}</Text>
-              </View>
-            </View>
+    const isDark = activeTheme === 'dark';
+    const isCrimson = activeTheme === 'crimson';
+    
+    // Theme-specific colors for the new Poppins/Geist style navbar
+    const navBgColor = isDark ? '#121212' : (isCrimson ? '#FFF1F2' : '#FFFFFF');
+    const navBorderColor = isDark ? '#27272A' : (isCrimson ? '#FFE4E6' : '#E4E4E7');
+    
+    // Capsule navigation bar background
+    const capsuleBg = isDark ? '#1F1F1F' : (isCrimson ? '#F4EAEA' : '#F4F4F5');
+    const capsuleBorder = isDark ? '#2D2D2D' : (isCrimson ? '#EAD6D6' : '#E4E4E7');
+    
+    // Active navigation button colors
+    const activeItemBg = isDark ? '#121212' : (isCrimson ? '#FFFFFF' : '#FFFFFF');
+    const activeItemBorder = isDark ? '#2D2D2D' : (isCrimson ? '#EAD6D6' : '#E4E4E7');
+    const activeTextColor = isDark ? '#FBBF24' : (isCrimson ? '#990000' : '#18181B');
+    const inactiveTextColor = isDark ? '#A1A1AA' : '#71717A';
 
-            {/* Center Side: Capsule Navigation Bar (Desktop Website Only) */}
-            {isDesktop && navItems.length > 0 && (
-              <View style={[
-                styles.webCenterNavContainer, 
-                { 
-                  backgroundColor: activeTheme === 'dark' ? '#1F1F1F' : '#F4F4F5', 
-                  borderColor: activeTheme === 'dark' ? '#2D2D2D' : '#E4E4E7' 
+    // Primary CTA button colors
+    const getStartedBg = isDark ? '#FFFFFF' : (isCrimson ? '#990000' : '#18181B');
+    const getStartedTextColor = isDark ? '#111111' : '#FFFFFF';
+
+    return (
+      <View style={[styles.webHeaderOuter, { backgroundColor: navBgColor, borderColor: navBorderColor }]}>
+        <View style={styles.webHeaderContainer}>
+          
+          {/* Logo Section */}
+          <TouchableOpacity style={styles.logoSection} activeOpacity={0.8} onPress={() => typeof setActiveTab === 'function' && setActiveTab('input')}>
+            <View style={{ marginRight: 10, marginTop: 2 }}>
+              <VastuLogo size={32} />
+            </View>
+            <Text style={[styles.logoText, { color: isDark ? '#FFFFFF' : '#111111' }]}>Vastu Sarvaswam</Text>
+          </TouchableOpacity>
+
+          {/* Center Capsule Navigation Links (Desktop viewports only) */}
+          {isDesktop && navItems.length > 0 && (
+            <View style={[styles.webCenterNavContainer, { backgroundColor: capsuleBg, borderColor: capsuleBorder }]}>
+              {navItems.map((item) => {
+                const isActive = activeTab === item.id;
+                const isLocked = item.id !== 'input' && !hasCalculated;
+                
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      styles.webCenterNavBtn,
+                      isActive && [styles.webCenterNavBtnActive, { backgroundColor: activeItemBg, borderColor: activeItemBorder }]
+                    ]}
+                    onPress={() => !isLocked && typeof setActiveTab === 'function' && setActiveTab(item.id)}
+                    activeOpacity={isLocked ? 0.5 : 0.8}
+                  >
+                    <Text style={[
+                      styles.webCenterNavBtnText,
+                      isActive 
+                        ? { color: activeTextColor, fontWeight: '700' }
+                        : { color: inactiveTextColor }
+                    ]}>
+                      {language === 'te' ? item.labelTe : item.labelEn}
+                    </Text>
+                    {isLocked && (
+                      <Ionicons 
+                        name="lock-closed" 
+                        size={10} 
+                        color={inactiveTextColor} 
+                        style={{ marginLeft: 4, opacity: 0.5 }}
+                      />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Right Actions section */}
+          <View style={styles.webRightSection}>
+            {/* Theme switcher */}
+            <TouchableOpacity 
+              style={[styles.webThemeCycleBtn, { borderColor: navBorderColor, backgroundColor: capsuleBg }]} 
+              onPress={() => {
+                if (typeof setActiveTheme === 'function') {
+                  if (activeTheme === 'light') setActiveTheme('dark');
+                  else if (activeTheme === 'dark') setActiveTheme('crimson');
+                  else setActiveTheme('light');
                 }
-              ]}>
-                {navItems.map((item) => {
-                  const isActive = activeTab === item.id;
-                  const isLocked = item.id !== 'input' && !hasCalculated;
-                  
-                  const activeItemBg = activeTheme === 'dark' ? '#121212' : '#FFFFFF';
-                  const activeItemBorder = activeTheme === 'dark' ? '#2D2D2D' : '#E4E4E7';
-                  
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={[
-                        styles.webCenterNavBtn,
-                        isActive && [styles.webCenterNavBtnActive, { backgroundColor: activeItemBg, borderColor: activeItemBorder }]
-                      ]}
-                      onPress={() => !isLocked && typeof setActiveTab === 'function' && setActiveTab(item.id)}
-                      activeOpacity={isLocked ? 0.5 : 0.8}
-                    >
-                      <Text style={[
-                        styles.webCenterNavBtnText,
-                        isActive 
-                          ? { color: webHeaderTextColor, fontWeight: '600' }
-                          : { color: activeTheme === 'dark' ? '#A1A1AA' : '#71717A' },
-                        isLocked && { opacity: 0.4 }
-                      ]}>
-                        {language === 'te' ? item.labelTe : item.labelEn}
-                      </Text>
-                      {isLocked && (
-                        <Ionicons 
-                          name="lock-closed" 
-                          size={10} 
-                          color={activeTheme === 'dark' ? '#A1A1AA' : '#71717A'} 
-                          style={{ marginLeft: 4, opacity: 0.6 }}
-                        />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="color-filter-outline" size={18} color={isDark ? '#FFFFFF' : '#111111'} />
+            </TouchableOpacity>
+
+            {/* Language cycling */}
+            <TouchableOpacity 
+              style={[styles.webLangSelectorCompact, { borderColor: navBorderColor, backgroundColor: capsuleBg }]}
+              onPress={() => setLanguage(language === 'en' ? 'te' : 'en')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.webLangText, { color: isDark ? '#FFFFFF' : '#111111' }]}>{language === 'en' ? 'తెలుగు' : 'EN'}</Text>
+            </TouchableOpacity>
+
+            {/* Premium CTA Button */}
+            {isDesktop && (
+              <TouchableOpacity 
+                style={[styles.webGetStartedBtn, { backgroundColor: getStartedBg }]} 
+                onPress={() => typeof setActiveTab === 'function' && setActiveTab('login')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.webGetStartedText, { color: getStartedTextColor }]}>
+                  {language === 'te' ? "ప్రారంభించండి" : "Get Started"}
+                </Text>
+                <View style={styles.webArrowCircle}>
+                  <Ionicons name="arrow-forward" size={11} color="#3F3F46" />
+                </View>
+              </TouchableOpacity>
             )}
 
-            {/* Right Side: Tools & Actions */}
-            <View style={styles.webRightSection}>
-              
-              {/* Single Theme Cycle Button */}
+            {/* Mobile menu trigger button */}
+            {!isDesktop && (
               <TouchableOpacity 
-                style={[styles.webThemeCycleBtn, { borderColor: webHeaderBorderColor, backgroundColor: webLogoBadgeBg }]} 
-                onPress={() => {
-                  if (typeof setActiveTheme === 'function') {
-                    if (activeTheme === 'light') setActiveTheme('dark');
-                    else if (activeTheme === 'dark') setActiveTheme('crimson');
-                    else setActiveTheme('light');
-                  }
-                }}
-                activeOpacity={0.8}
+                onPress={() => setMobileOpen(!mobileOpen)} 
+                style={[styles.webHeaderMenuBtn, { borderColor: navBorderColor, backgroundColor: capsuleBg }]}
+                activeOpacity={0.7}
               >
-                <Ionicons name="color-filter-outline" size={18} color={webHeaderTextColor} style={{ opacity: 0.95 }} />
+                <Ionicons name={mobileOpen ? "close-outline" : "menu-outline"} size={24} color={isDark ? '#FFFFFF' : '#111111'} />
               </TouchableOpacity>
-
-              {/* Compact language selector */}
-              <TouchableOpacity 
-                style={[styles.webLangSelectorCompact, { borderColor: webHeaderBorderColor, backgroundColor: webLogoBadgeBg }]}
-                onPress={() => setLanguage(language === 'en' ? 'te' : 'en')}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.webLangText, { color: webHeaderTextColor }]}>{language === 'en' ? 'తెలుగు' : 'EN'}</Text>
-              </TouchableOpacity>
-
-              {/* "Get Started" Action Button (Desktop Only) */}
-              {isDesktop && (
-                <TouchableOpacity 
-                  style={[
-                    styles.webGetStartedBtn, 
-                    { backgroundColor: activeTheme === 'dark' ? '#FFFFFF' : currentTheme.colors.primary }
-                  ]}
-                  onPress={() => {
-                    if (typeof setActiveTab === 'function') {
-                      setActiveTab('input');
-                    }
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[
-                    styles.webGetStartedText,
-                    { color: activeTheme === 'dark' ? currentTheme.colors.primary : '#FFFFFF' }
-                  ]}>
-                    {language === 'te' ? "ప్రారంభించండి" : "Get Started"}
-                  </Text>
-                  <View style={[
-                    styles.webGetStartedArrowCircle,
-                    { backgroundColor: activeTheme === 'dark' ? currentTheme.colors.primary : '#FFFFFF' }
-                  ]}>
-                    <Ionicons 
-                      name="arrow-forward" 
-                      size={12} 
-                      color={activeTheme === 'dark' ? '#FFFFFF' : currentTheme.colors.primary} 
-                    />
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              {/* Hamburger menu button for small web layouts */}
-              {showMenuButton && (
-                <TouchableOpacity onPress={onMenuPress} style={[styles.webHeaderMenuBtn, { borderColor: webHeaderBorderColor, backgroundColor: webLogoBadgeBg }]}>
-                  <Ionicons name="menu-outline" size={24} color={webHeaderTextColor} />
-                </TouchableOpacity>
-              )}
-            </View>
+            )}
           </View>
         </View>
+
+        {/* Mobile dropdown menu overlay drawer */}
+        {!isDesktop && mobileOpen && (
+          <View style={[styles.webMobileDrawer, { backgroundColor: navBgColor, borderTopColor: navBorderColor }]}>
+            {navItems.map((item) => {
+              const isActive = activeTab === item.id;
+              const isLocked = item.id !== 'input' && !hasCalculated;
+              return (
+                <TouchableOpacity 
+                  key={item.id} 
+                  style={[styles.webMobileLink, isActive && { backgroundColor: capsuleBg }]}
+                  onPress={() => {
+                    if (!isLocked) {
+                      setMobileOpen(false);
+                      if (typeof setActiveTab === 'function') setActiveTab(item.id);
+                    }
+                  }}
+                  activeOpacity={isLocked ? 0.5 : 0.8}
+                >
+                  <Text style={[
+                    styles.webMobileLinkText, 
+                    { color: isActive ? activeTextColor : inactiveTextColor }, 
+                    isActive && { fontWeight: '700' },
+                    isLocked && { opacity: 0.4 }
+                  ]}>
+                    {language === 'te' ? item.labelTe : item.labelEn}
+                  </Text>
+                  {isLocked && (
+                    <Ionicons name="lock-closed" size={12} color={inactiveTextColor} style={{ opacity: 0.4 }} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity 
+              style={[styles.webGetStartedBtn, { backgroundColor: getStartedBg, marginTop: 12, alignSelf: 'stretch', justifyContent: 'center' }]} 
+              onPress={() => {
+                setMobileOpen(false);
+                if (typeof setActiveTab === 'function') setActiveTab('input');
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.webGetStartedText, { color: getStartedTextColor }]}>
+                {language === 'te' ? "ప్రారంభించండి" : "Get Started"}
+              </Text>
+              <View style={styles.webArrowCircle}>
+                <Ionicons name="arrow-forward" size={11} color="#3F3F46" />
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     );
   }
 
-  // Mobile App Native Viewport Header (Original Design - Gold border wrapper, primary blue/crimson container background, gold accent line)
+  // Mobile App Native Viewport Header (Original Design - Unchanged)
   return (
     <View style={[styles.appHeaderOuter, { backgroundColor: currentTheme.colors.accent }]}>
       <View style={[styles.appHeaderContainer, { backgroundColor: currentTheme.colors.primary }]}>
@@ -187,8 +221,8 @@ export default function VastuHeader({
           
           {/* Left Side: Brand Logo and Title */}
           <View style={styles.appLeftSection}>
-            <View style={[styles.appLogoBadge, { borderColor: currentTheme.colors.accent }]}>
-              <Ionicons name="compass" size={22} color={currentTheme.colors.accent} />
+            <View style={{ marginRight: 10, alignSelf: 'center' }}>
+              <VastuLogo size={30} />
             </View>
             <View style={styles.appTextGroup}>
               <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800', letterSpacing: 0.5 }}>{appTitle}</Text>
@@ -199,9 +233,8 @@ export default function VastuHeader({
           {/* Right Side: Tools & Actions */}
           <View style={styles.appRightSection}>
             
-            {/* Theme Select */}
             <TouchableOpacity 
-              style={[styles.appThemeBtn, { borderColor: 'rgba(255, 255, 255, 0.15)' }]} 
+              style={styles.appThemeBtn} 
               onPress={() => {
                 if (typeof setActiveTheme === 'function') {
                   if (activeTheme === 'light') setActiveTheme('dark');
@@ -211,83 +244,57 @@ export default function VastuHeader({
               }}
               activeOpacity={0.8}
             >
-              <Ionicons name="color-filter-outline" size={18} color="#FFFFFF" style={{ opacity: 0.95 }} />
+              <Ionicons name="color-filter-outline" size={16} color="#FFFFFF" />
             </TouchableOpacity>
 
-            {/* Language Selector */}
             <TouchableOpacity 
-              style={[styles.appLangBtn, { borderColor: 'rgba(255, 255, 255, 0.15)' }]}
+              style={styles.appLangBtn}
               onPress={() => setLanguage(language === 'en' ? 'te' : 'en')}
               activeOpacity={0.8}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>{language === 'en' ? 'తెలుగు' : 'EN'}</Text>
+              <Text style={styles.appLangText}>{language === 'en' ? 'తెలుగు' : 'EN'}</Text>
             </TouchableOpacity>
-
           </View>
         </View>
       </View>
-      
-      {/* Unique Golden structural accent line */}
       <View style={[styles.appGoldAccentLine, { backgroundColor: currentTheme.colors.accent }]} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Web styles
   webHeaderOuter: {
-    borderWidth: 1,
-    zIndex: 100,
-    marginTop: 12,
-    marginHorizontal: 16,
-    borderRadius: 24,
-    overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    width: '100%',
+    borderBottomWidth: 1,
+    zIndex: 999,
   },
   webHeaderContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 10,
-  },
-  webHeaderBody: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    height: 56,
+    paddingHorizontal: 24,
+    height: 78,
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
   },
-  webLeftSection: {
+  logoSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    flexShrink: 1,
+    gap: 10,
   },
-  webLogoBadge: {
-    width: 36,
-    height: 36,
+  logoBadge: {
+    width: 32,
+    height: 32,
     borderRadius: 8,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.2,
   },
-  webTextGroup: {
-    justifyContent: 'center',
-  },
-  webTitleText: {
+  logoText: {
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.5,
-  },
-  webSubtitleText: {
-    fontSize: 9,
-    fontWeight: '600',
-    opacity: 0.8,
-    marginTop: 1,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
   },
   webCenterNavContainer: {
     flexDirection: 'row',
@@ -307,6 +314,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   webCenterNavBtnActive: {
+    borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -314,7 +322,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   webCenterNavBtnText: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '500',
   },
   webRightSection: {
@@ -325,7 +333,7 @@ const styles = StyleSheet.create({
   webThemeCycleBtn: {
     width: 32,
     height: 32,
-    borderRadius: 6,
+    borderRadius: 16,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -334,7 +342,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingVertical: 5,
     paddingHorizontal: 10,
-    borderRadius: 6,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -345,20 +353,21 @@ const styles = StyleSheet.create({
   webGetStartedBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     paddingLeft: 18,
     paddingRight: 6,
     paddingVertical: 6,
     borderRadius: 24,
   },
   webGetStartedText: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '600',
   },
-  webGetStartedArrowCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+  webArrowCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -368,10 +377,27 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+  },
+  webMobileDrawer: {
+    borderTopWidth: 1,
+    padding: 16,
+    width: '100%',
+  },
+  webMobileLink: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 4,
+  },
+  webMobileLinkText: {
+    fontSize: 14.5,
+    fontWeight: '500',
   },
 
-  // App native styles
+  // App native styles (Unchanged)
   appHeaderOuter: {
     paddingBottom: 4.5,
     paddingHorizontal: 2.5,
@@ -417,19 +443,6 @@ const styles = StyleSheet.create({
   },
   appTextGroup: {
     justifyContent: 'center',
-  },
-  appTitleText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  appSubtitleText: {
-    color: '#EEF2F6',
-    fontSize: 9,
-    fontWeight: '500',
-    opacity: 0.7,
-    marginTop: 1,
   },
   appRightSection: {
     flexDirection: 'row',
