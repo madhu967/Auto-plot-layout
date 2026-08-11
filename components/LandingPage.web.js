@@ -9,7 +9,8 @@ import {
   Platform,
   StatusBar,
   Image,
-  Animated
+  Animated,
+  TextInput
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import VastuFooter from './VastuFooter';
@@ -309,6 +310,290 @@ const FAQSection = ({ theme, language, isDesktop }) => {
   );
 };
 
+// Newsletter Section Component
+const NewsletterSection = ({ theme, language, isDesktop }) => {
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState('idle'); // 'idle', 'subscribing', 'subscribed', 'error'
+  const isTe = language === 'te';
+
+  const handleSubscribe = () => {
+    if (!email || !email.includes('@')) {
+      setStatus('error');
+      return;
+    }
+    setStatus('subscribing');
+    // Simulate API call
+    setTimeout(() => {
+      setStatus('subscribed');
+      setEmail('');
+    }, 1200);
+  };
+
+  const activeTheme = theme || {
+    colors: {
+      background: '#FAFAFA',
+      surface: '#FFFFFF',
+      text: '#1F2937',
+      textSecondary: '#6B7280',
+      border: '#E5E7EB',
+      primary: '#070262',
+      accent: '#FBBF24',
+      divider: '#F3F4F6',
+      primaryLight: '#EEF2F6',
+      success: '#10B981',
+      warning: '#F59E0B',
+      danger: '#EF4444'
+    }
+  };
+
+  const isDark = activeTheme.colors.background === '#000000' || activeTheme.colors.background === '#121212';
+  const brandHighlight = isDark 
+    ? (activeTheme.colors.accent || '#FBBF24') 
+    : (activeTheme.colors.primary || '#070262');
+
+  const newsletterStyles = StyleSheet.create({
+    container: {
+      width: '100%',
+      maxWidth: 896,
+      paddingHorizontal: isDesktop ? 0 : 16,
+      marginTop: 20,
+      marginBottom: 20,
+    },
+    card: {
+      backgroundColor: activeTheme.colors.primaryLight || '#EEF2F6',
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: activeTheme.colors.border || '#E5E7EB',
+      padding: isDesktop ? 40 : 24,
+      flexDirection: isDesktop ? 'row' : 'column-reverse',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 32,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: isDark ? 0.25 : 0.04,
+      shadowRadius: 16,
+      elevation: 4,
+      overflow: 'hidden',
+      position: 'relative',
+    },
+    glow1: {
+      position: 'absolute',
+      width: 260,
+      height: 260,
+      borderRadius: 130,
+      backgroundColor: brandHighlight + '0C',
+      top: -80,
+      right: -80,
+    },
+    glow2: {
+      position: 'absolute',
+      width: 180,
+      height: 180,
+      borderRadius: 90,
+      backgroundColor: (isDark ? '#FFFFFF' : activeTheme.colors.primary) + '05',
+      bottom: -40,
+      left: -40,
+    },
+    contentWrapper: {
+      flex: 1.2,
+      alignItems: 'flex-start',
+      zIndex: 1,
+      width: '100%',
+    },
+    imageWrapper: {
+      flex: 0.8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1,
+    },
+    image: {
+      width: isDesktop ? 200 : 140,
+      height: isDesktop ? 200 : 140,
+      resizeMode: 'contain',
+    },
+    badgeText: {
+      fontSize: 12.5,
+      fontWeight: '700',
+      color: brandHighlight,
+      textTransform: 'uppercase',
+      letterSpacing: 1.5,
+      marginBottom: 10,
+    },
+    heading: {
+      fontSize: isDesktop ? 30 : 22,
+      fontWeight: '700',
+      color: activeTheme.colors.text,
+      lineHeight: isDesktop ? 36 : 28,
+      marginBottom: 12,
+      letterSpacing: -0.5,
+    },
+    subheading: {
+      fontSize: 14,
+      color: activeTheme.colors.textSecondary,
+      lineHeight: 21,
+      marginBottom: 24,
+    },
+    inputGroup: {
+      flexDirection: isDesktop ? 'row' : 'column',
+      width: '100%',
+      gap: 12,
+      marginBottom: 8,
+    },
+    input: {
+      flex: 1,
+      backgroundColor: activeTheme.colors.surface,
+      color: activeTheme.colors.text,
+      borderWidth: 1.5,
+      borderColor: status === 'error' ? activeTheme.colors.danger : activeTheme.colors.border,
+      borderRadius: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      fontSize: 14,
+      fontFamily: 'System',
+      outlineStyle: 'none',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.02,
+      shadowRadius: 2,
+    },
+    button: {
+      backgroundColor: brandHighlight,
+      borderRadius: 10,
+      paddingHorizontal: 22,
+      paddingVertical: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 8,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    buttonText: {
+      color: isDark && brandHighlight === activeTheme.colors.accent ? '#111111' : '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    successContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 8,
+      backgroundColor: activeTheme.colors.success + '15',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 10,
+      width: '100%',
+    },
+    successText: {
+      fontSize: 14,
+      color: activeTheme.colors.success,
+      fontWeight: '600',
+    },
+    errorText: {
+      fontSize: 13,
+      color: activeTheme.colors.danger,
+      marginTop: 6,
+      fontWeight: '500',
+    },
+    trustText: {
+      fontSize: 12,
+      color: activeTheme.colors.textSecondary,
+      marginTop: 10,
+      opacity: 0.8,
+    }
+  });
+
+  return (
+    <View style={newsletterStyles.container}>
+      <View style={newsletterStyles.card}>
+        <View style={newsletterStyles.glow1} />
+        <View style={newsletterStyles.glow2} />
+
+        {/* Left Side: Content */}
+        <View style={newsletterStyles.contentWrapper}>
+          <Text style={newsletterStyles.badgeText}>
+            {isTe ? "వార్తాలేఖ" : "Newsletter"}
+          </Text>
+          <Text style={newsletterStyles.heading}>
+            {isTe ? "వాస్తు సర్వస్వం తో తాజాగా ఉండండి" : "Stay Ahead with Vastu Wisdom"}
+          </Text>
+          <Text style={newsletterStyles.subheading}>
+            {isTe 
+              ? "తాజా వాస్తు చిట్కాలు, ఆటోమేటిక్ లేఅవుట్ అప్‌డేట్‌లు మరియు నిపుణుల ఆర్కిటెక్చరల్ గైడ్‌లను నేరుగా మీ ఇన్‌బాక్స్‌కి పొందండి."
+              : "Receive the latest Vastu placement guides, automatic layout updates, and exclusive design strategies direct to your inbox."}
+          </Text>
+
+          {status === 'subscribed' ? (
+            <View style={newsletterStyles.successContainer}>
+              <Ionicons name="checkmark-circle" size={20} color={activeTheme.colors.success} />
+              <Text style={newsletterStyles.successText}>
+                {isTe ? "విజయవంతంగా సబ్‌స్క్రైబ్ చేయబడింది! ధన్యవాదాలు." : "Successfully subscribed! Thank you."}
+              </Text>
+            </View>
+          ) : (
+            <View style={{ width: '100%' }}>
+              <View style={newsletterStyles.inputGroup}>
+                <TextInput
+                  style={newsletterStyles.input}
+                  placeholder={isTe ? "మీ ఇమెయిల్ చిరునామాను నమోదు చేయండి" : "Enter your email address"}
+                  placeholderTextColor={isDark ? '#9CA3AF' : '#9CA3AF'}
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (status === 'error') setStatus('idle');
+                  }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity 
+                  style={newsletterStyles.button} 
+                  activeOpacity={0.8}
+                  onPress={handleSubscribe}
+                  disabled={status === 'subscribing'}
+                >
+                  <Text style={newsletterStyles.buttonText}>
+                    {status === 'subscribing' 
+                      ? (isTe ? "సబ్‌స్క్రైబ్ అవుతోంది..." : "Subscribing...") 
+                      : (isTe ? "సబ్‌స్క్రైబ్ చేయండి" : "Subscribe Now")}
+                  </Text>
+                  <Ionicons 
+                    name={status === 'subscribing' ? "hourglass-outline" : "paper-plane-outline"} 
+                    size={16} 
+                    color={isDark && brandHighlight === activeTheme.colors.accent ? '#111111' : '#FFFFFF'} 
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {status === 'error' && (
+                <Text style={newsletterStyles.errorText}>
+                  {isTe ? "దయచేసి సరైన ఇమెయిల్ చిరునామాను నమోదు చేయండి." : "Please enter a valid email address."}
+                </Text>
+              )}
+            </View>
+          )}
+
+          <Text style={newsletterStyles.trustText}>
+            🛡️ {isTe ? "సురక్షితమైనది. ఎప్పుడైనా అన్‌సబ్‌స్క్రైబ్ చేయవచ్చు." : "We respect your privacy. Unsubscribe at any time."}
+          </Text>
+        </View>
+
+        {/* Right Side: 3D Transparent Image */}
+        <View style={newsletterStyles.imageWrapper}>
+          <Image 
+            source={{ uri: 'https://img.icons8.com/3d-fluency/375/mail.png' }}
+            style={newsletterStyles.image}
+          />
+        </View>
+      </View>
+    </View>
+  );
+};
+
 export default function LandingPage({ onGetStarted, theme, renderInputs, language, scrollToInputsOnMount }) {
   const [windowWidth, setWindowWidth] = useState(Dimensions.get('window').width);
   const scrollRef = useRef(null);
@@ -564,6 +849,12 @@ export default function LandingPage({ onGetStarted, theme, renderInputs, languag
             </RevealWrapper>
           </React.Fragment>
         )}
+
+        {/* Newsletter Section */}
+        <View style={styles.divider} />
+        <RevealWrapper yOffset={40}>
+          <NewsletterSection theme={activeTheme} language={language} isDesktop={isDesktop} />
+        </RevealWrapper>
 
         {/* FAQ Section */}
         <View style={styles.divider} />
