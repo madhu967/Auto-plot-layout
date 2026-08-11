@@ -53,8 +53,8 @@ export default function VastuFooter({ language, theme: propTheme, activeTheme, s
         borderTop: `1px solid ${footerBorder}`,
         paddingLeft: `${footerPaddingHorizontal}px`,
         paddingRight: `${footerPaddingHorizontal}px`,
-        paddingTop: isMobileWeb ? '36px' : '48px',
-        paddingBottom: '32px',
+        paddingTop: isMobileWeb ? '48px' : '64px',
+        paddingBottom: '48px',
         boxSizing: 'border-box',
         fontFamily: 'System, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         ...customMarginStyle
