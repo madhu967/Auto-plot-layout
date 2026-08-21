@@ -512,8 +512,8 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
         width: winW,
         height: winVisualThick,
         borderWidth: 1.2,
-        borderColor: win.isBathroom ? '#475569' : '#0284C7',
-        backgroundColor: win.isBathroom ? '#64748B' : '#0EA5E9',
+        borderColor: win.isBathroom ? '#475569' : (theme.colors.cadWindow || '#0284C7'),
+        backgroundColor: win.isBathroom ? '#64748B' : (theme.colors.cadWindow || '#0EA5E9'),
       };
 
       if (win.side === 'top') {
@@ -551,8 +551,8 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
         width: winVisualThick,
         height: winW,
         borderWidth: 1.2,
-        borderColor: win.isBathroom ? '#475569' : '#0284C7',
-        backgroundColor: win.isBathroom ? '#64748B' : '#0EA5E9',
+        borderColor: win.isBathroom ? '#475569' : (theme.colors.cadWindow || '#0284C7'),
+        backgroundColor: win.isBathroom ? '#64748B' : (theme.colors.cadWindow || '#0EA5E9'),
       };
 
       if (win.side === 'left') {
@@ -1555,7 +1555,7 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
         top: coord_px - thick / 2,
         width: len,
         height: thick,
-        backgroundColor: '#0F172A', // Deep architectural wall fill (similar to dark blue/charcoal CAD prints)
+        backgroundColor: theme.colors.cadWall || '#0F172A', // Deep architectural wall fill (similar to dark blue/charcoal CAD prints)
       };
     } else {
       style = {
@@ -1564,7 +1564,7 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
         top: s_px,
         width: thick,
         height: len,
-        backgroundColor: '#0F172A',
+        backgroundColor: theme.colors.cadWall || '#0F172A',
       };
     }
 
@@ -1710,6 +1710,21 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
                   <View style={[styles.quadrantBadge, { top: 6, left: 6 }]}><Text style={styles.quadrantText}>NW</Text></View>
                   <View style={[styles.quadrantBadge, { bottom: 6, right: 6 }]}><Text style={styles.quadrantText}>SE</Text></View>
                   <View style={[styles.quadrantBadge, { bottom: 6, left: 6 }]}><Text style={styles.quadrantText}>SW</Text></View>
+
+                  {/* Brahmasthan (Vastu Center Highlight) */}
+                  <View style={[
+                    styles.brahmasthanHighlight, 
+                    { 
+                      left: currentPlotWidth / 3, 
+                      top: currentPlotHeight / 3, 
+                      width: currentPlotWidth / 3, 
+                      height: currentPlotHeight / 3,
+                      backgroundColor: theme.colors.vastuCenter ? `${theme.colors.vastuCenter}20` : 'rgba(251, 191, 36, 0.05)',
+                      borderColor: theme.colors.accent || '#FBBF24',
+                    }
+                  ]}>
+                    <Text style={styles.brahmasthanText}>{isTe ? "బ్రహ్మస్థానం" : "BRAHMASTHAN"}</Text>
+                  </View>
 
                   {/* Setback Utilities */}
                   <View style={[styles.stairsBlueprintBlock, getUtilityCoordsOffset(state.stairsLocation, 'stairs')]}>
@@ -2670,12 +2685,26 @@ const getStyles = (theme) => StyleSheet.create({
   winGlassCenterH: {
     width: '100%',
     height: 1,
-    backgroundColor: '#0EA5E9',
+    backgroundColor: theme.colors.cadWindow || '#0EA5E9',
   },
   winGlassCenterV: {
     height: '100%',
     width: 1,
-    backgroundColor: '#0EA5E9',
+    backgroundColor: theme.colors.cadWindow || '#0EA5E9',
+  },
+  brahmasthanHighlight: {
+    position: 'absolute',
+    borderWidth: 1.2,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  brahmasthanText: {
+    fontSize: 7,
+    fontWeight: '800',
+    color: theme.colors.primary ? `${theme.colors.primary}40` : 'rgba(48, 40, 31, 0.25)',
+    letterSpacing: 1.0,
   },
   entranceArrowContainer: {
     position: 'absolute',

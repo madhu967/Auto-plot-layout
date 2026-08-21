@@ -327,11 +327,16 @@ export default function LandingPage({ onGetStarted, theme, renderInputs, languag
   };
 
   const isDark = activeTheme.colors.background === '#000000' || activeTheme.colors.background === '#121212';
+  const isCrimson = activeTheme.colors.primary === '#990000';
+  const isIvory = activeTheme.colors.background === '#F8F5EE';
   
   // Calculate dynamic highlight color matching the active theme's style context
-  const brandHighlight = isDark 
-    ? (activeTheme.colors.accent || '#FBBF24') 
-    : (activeTheme.colors.primary || '#070262');
+  const brandHighlight = isIvory 
+    ? (activeTheme.colors.accent || '#AD7A2E')
+    : (isCrimson 
+        ? (activeTheme.colors.primary || '#990000') 
+        : (isDark ? (activeTheme.colors.accent || '#FBBF24') : (activeTheme.colors.primary || '#070262'))
+      );
 
   const styles = getStyles(activeTheme, isDark, isDesktop, brandHighlight);
 

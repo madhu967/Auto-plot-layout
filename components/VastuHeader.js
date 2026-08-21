@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, useWindowDimensions, StatusBar } from 'react-native';
-import { theme as staticTheme, lightTheme, darkTheme, crimsonTheme } from '../constants/theme';
+import { theme as staticTheme, lightTheme, darkTheme, crimsonTheme, ivoryTheme } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import VastuLogo from './VastuLogo';
 
@@ -25,7 +25,8 @@ export default function VastuHeader({
   const themeConfigs = {
     light: lightTheme,
     dark: darkTheme,
-    crimson: crimsonTheme
+    crimson: crimsonTheme,
+    ivory: ivoryTheme
   };
   const currentTheme = themeConfigs[activeTheme] || lightTheme;
 
@@ -35,23 +36,24 @@ export default function VastuHeader({
   if (Platform.OS === 'web') {
     const isDark = activeTheme === 'dark';
     const isCrimson = activeTheme === 'crimson';
+    const isIvory = activeTheme === 'ivory';
     
     // Theme-specific colors for the new Poppins/Geist style navbar
-    const navBgColor = isDark ? '#121212' : (isCrimson ? '#FFF1F2' : '#FFFFFF');
-    const navBorderColor = isDark ? '#27272A' : (isCrimson ? '#FFE4E6' : '#E4E4E7');
+    const navBgColor = currentTheme.colors.surface;
+    const navBorderColor = currentTheme.colors.border;
     
     // Capsule navigation bar background
-    const capsuleBg = isDark ? '#1F1F1F' : (isCrimson ? '#F4EAEA' : '#F4F4F5');
-    const capsuleBorder = isDark ? '#2D2D2D' : (isCrimson ? '#EAD6D6' : '#E4E4E7');
+    const capsuleBg = isIvory ? '#F1EADF' : (isDark ? '#1F1F1F' : (isCrimson ? '#F4EAEA' : '#F4F4F5'));
+    const capsuleBorder = currentTheme.colors.border;
     
     // Active navigation button colors
-    const activeItemBg = isDark ? '#121212' : (isCrimson ? '#FFFFFF' : '#FFFFFF');
-    const activeItemBorder = isDark ? '#2D2D2D' : (isCrimson ? '#EAD6D6' : '#E4E4E7');
-    const activeTextColor = isDark ? '#FBBF24' : (isCrimson ? '#990000' : '#18181B');
-    const inactiveTextColor = isDark ? '#A1A1AA' : '#71717A';
+    const activeItemBg = isDark ? '#121212' : '#FFFFFF';
+    const activeItemBorder = currentTheme.colors.border;
+    const activeTextColor = isDark ? '#FBBF24' : (isCrimson ? '#990000' : (isIvory ? '#AD7A2E' : '#18181B'));
+    const inactiveTextColor = currentTheme.colors.textSecondary;
 
     // Primary CTA button colors
-    const getStartedBg = isDark ? '#FFFFFF' : (isCrimson ? '#990000' : '#18181B');
+    const getStartedBg = isDark ? '#FFFFFF' : (isCrimson ? '#990000' : (isIvory ? '#AD7A2E' : '#18181B'));
     const getStartedTextColor = isDark ? '#111111' : '#FFFFFF';
 
     return (
@@ -114,6 +116,7 @@ export default function VastuHeader({
                 if (typeof setActiveTheme === 'function') {
                   if (activeTheme === 'light') setActiveTheme('dark');
                   else if (activeTheme === 'dark') setActiveTheme('crimson');
+                  else if (activeTheme === 'crimson') setActiveTheme('ivory');
                   else setActiveTheme('light');
                 }
               }}

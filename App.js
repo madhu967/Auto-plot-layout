@@ -11,7 +11,7 @@ import {
   Platform,
   Animated
 } from 'react-native';
-import { theme, lightTheme, darkTheme, crimsonTheme } from './constants/theme';
+import { theme, lightTheme, darkTheme, crimsonTheme, ivoryTheme } from './constants/theme';
 import VastuHeader from './components/VastuHeader';
 import InputModule from './components/InputModule';
 import CoreEngine from './components/CoreEngine';
@@ -142,7 +142,8 @@ export default function App() {
   const themeConfigs = {
     light: lightTheme,
     dark: darkTheme,
-    crimson: crimsonTheme
+    crimson: crimsonTheme,
+    ivory: ivoryTheme
   };
   const currentTheme = themeConfigs[activeTheme] || lightTheme;
 

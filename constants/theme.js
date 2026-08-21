@@ -121,5 +121,36 @@ export const crimsonTheme = {
   elevation: lightTheme.elevation
 };
 
+export const ivoryTheme = {
+  colors: {
+    background: "#F8F5EE", // Warm Ivory
+    surface: "#FFFDF8", // Panel / Card White
+    primary: "#30281F", // Primary Text / Deep Brown
+    primaryDark: "#1F1A14",
+    primaryLight: "#F1EADF", // Soft Beige Surface
+    accent: "#AD7A2E", // Muted Gold Accent
+    text: "#30281F", // Primary Text / Deep Brown
+    textSecondary: "#81776A", // Muted Text / Taupe
+    border: "#E7DFD1", // Border / Soft Beige
+    divider: "#F1EADF",
+    success: "#4E7657", // Positive Green
+    warning: "#D0A04D", // Highlight Gold
+    danger: "#A85A4C", // Warning Red
+    cadWall: "#302A24", // CAD Wall Color
+    cadWindow: "#568095", // CAD Window Color
+    vastuCenter: "#F0E4CC", // Vastu Center Highlight
+  },
+  spacing: lightTheme.spacing,
+  radius: lightTheme.radius,
+  typography: {
+    h1: { fontSize: 24, fontWeight: "700", color: "#30281F", fontFamily: headingFont },
+    h2: { fontSize: 20, fontWeight: "600", color: "#30281F", fontFamily: headingFont },
+    h3: { fontSize: 16, fontWeight: "600", color: "#30281F", fontFamily: headingFont },
+    body: { fontSize: 14, fontWeight: "500", color: "#30281F", fontFamily: bodyFont },
+    caption: { fontSize: 12, fontWeight: "400", color: "#81776A", fontFamily: bodyFont },
+  },
+  elevation: lightTheme.elevation
+};
+
 // Legacy fallback export to avoid import syntax crashes in existing files
 export const theme = lightTheme;
