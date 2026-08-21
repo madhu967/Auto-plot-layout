@@ -295,6 +295,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'web' ? 'Playfair Display' : 'System',
   },
   webCenterNavContainer: {
     flexDirection: 'row',
@@ -324,6 +325,7 @@ const styles = StyleSheet.create({
   webCenterNavBtnText: {
     fontSize: 13,
     fontWeight: '500',
+    fontFamily: Platform.OS === 'web' ? 'Outfit' : 'System',
   },
   webRightSection: {
     flexDirection: 'row',
@@ -349,6 +351,7 @@ const styles = StyleSheet.create({
   webLangText: {
     fontSize: 10.5,
     fontWeight: '700',
+    fontFamily: Platform.OS === 'web' ? 'Outfit' : 'System',
   },
   webGetStartedBtn: {
     flexDirection: 'row',
@@ -362,6 +365,7 @@ const styles = StyleSheet.create({
   webGetStartedText: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: Platform.OS === 'web' ? 'Outfit' : 'System',
   },
   webArrowCircle: {
     width: 24,

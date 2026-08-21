@@ -185,12 +185,14 @@ const FAQSection = ({ theme, language, isDesktop }) => {
       fontWeight: '600',
       color: activeTheme.colors.text,
       marginBottom: 8,
+      fontFamily: 'Playfair Display',
     },
     subheading: {
       fontSize: 14,
       color: activeTheme.colors.textSecondary,
       lineHeight: 20,
       marginBottom: 20,
+      fontFamily: 'Outfit',
     },
     faqList: {
       width: '100%',
@@ -427,12 +429,14 @@ const NewsletterSection = ({ theme, language, isDesktop }) => {
       lineHeight: isDesktop ? 36 : 28,
       marginBottom: 12,
       letterSpacing: -0.5,
+      fontFamily: 'Playfair Display',
     },
     subheading: {
       fontSize: 14,
       color: activeTheme.colors.textSecondary,
       lineHeight: 21,
       marginBottom: 24,
+      fontFamily: 'Outfit',
     },
     inputGroup: {
       flexDirection: isDesktop ? 'row' : 'column',
@@ -450,7 +454,7 @@ const NewsletterSection = ({ theme, language, isDesktop }) => {
       paddingHorizontal: 16,
       paddingVertical: 12,
       fontSize: 14,
-      fontFamily: 'System',
+      fontFamily: 'Outfit',
       outlineStyle: 'none',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 1 },
@@ -594,9 +598,11 @@ const NewsletterSection = ({ theme, language, isDesktop }) => {
   );
 };
 
+
 export default function LandingPage({ onGetStarted, theme, renderInputs, language, scrollToInputsOnMount }) {
   const [windowWidth, setWindowWidth] = useState(Dimensions.get('window').width);
   const scrollRef = useRef(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({ window }) => {
@@ -658,11 +664,16 @@ export default function LandingPage({ onGetStarted, theme, renderInputs, languag
   };
 
   return (
-    <ScrollView 
+    <Animated.ScrollView 
       ref={scrollRef}
       style={styles.container}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
+      scrollEventThrottle={16}
+      onScroll={Animated.event(
+        [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+        { useNativeDriver: false }
+      )}
     >
       <View style={styles.heroOuter}>
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
@@ -872,7 +883,7 @@ export default function LandingPage({ onGetStarted, theme, renderInputs, languag
           style={{ width: '100%', alignSelf: 'stretch', marginTop: 0 }}
         />
       )}
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 
@@ -955,6 +966,7 @@ const getStyles = (theme, isDark, isDesktop, brandHighlight) => {
       color: theme.colors.text,
       lineHeight: 40,
       letterSpacing: -0.5,
+      fontFamily: 'Playfair Display',
       ...Platform.select({
         web: { fontSize: 48, lineHeight: 56 }
       })
@@ -967,6 +979,7 @@ const getStyles = (theme, isDark, isDesktop, brandHighlight) => {
       paddingHorizontal: 24,
       color: theme.colors.textSecondary,
       lineHeight: 22,
+      fontFamily: 'Outfit',
       ...Platform.select({
         web: { fontSize: 15, lineHeight: 24 }
       })
@@ -1155,12 +1168,14 @@ const getStyles = (theme, isDark, isDesktop, brandHighlight) => {
       textTransform: 'uppercase',
       letterSpacing: 1.5,
       marginBottom: 6,
+      fontFamily: 'Outfit',
     },
     aboutHeading: {
       fontSize: 22,
       fontWeight: '800',
       color: theme.colors.text,
       letterSpacing: 0.5,
+      fontFamily: 'Playfair Display',
     },
     gradientUnderline: {
       width: 96,
@@ -1175,6 +1190,7 @@ const getStyles = (theme, isDark, isDesktop, brandHighlight) => {
       color: theme.colors.textSecondary,
       lineHeight: 22,
       marginBottom: 16,
+      fontFamily: 'Outfit',
     },
     aboutReadMoreBtn: {
       flexDirection: 'row',
@@ -1195,6 +1211,7 @@ const getStyles = (theme, isDark, isDesktop, brandHighlight) => {
       color: isDark ? '#111111' : '#FFFFFF',
       fontSize: 14,
       fontWeight: '700',
+      fontFamily: 'Outfit',
     },
     servicesHeading: {
       fontSize: 22,
@@ -1203,6 +1220,7 @@ const getStyles = (theme, isDark, isDesktop, brandHighlight) => {
       letterSpacing: 0.5,
       textAlign: 'center',
       marginTop: 10,
+      fontFamily: 'Playfair Display',
     },
     gradientUnderlineCentred: {
       width: 96,

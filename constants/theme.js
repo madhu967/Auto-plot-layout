@@ -1,3 +1,8 @@
+import { Platform } from 'react-native';
+
+const headingFont = Platform.OS === 'web' ? 'Playfair Display' : 'System';
+const bodyFont = Platform.OS === 'web' ? 'Outfit' : 'System';
+
 export const lightTheme = {
   colors: {
     background: "#F8F9FA",
@@ -35,11 +40,11 @@ export const lightTheme = {
     badge: 100,
   },
   typography: {
-    h1: { fontSize: 24, fontWeight: "700", color: "#1F2937", fontFamily: "System" },
-    h2: { fontSize: 20, fontWeight: "600", color: "#1F2937", fontFamily: "System" },
-    h3: { fontSize: 16, fontWeight: "600", color: "#1F2937", fontFamily: "System" },
-    body: { fontSize: 14, fontWeight: "500", color: "#1F2937", fontFamily: "System" },
-    caption: { fontSize: 12, fontWeight: "400", color: "#6B7280", fontFamily: "System" },
+    h1: { fontSize: 24, fontWeight: "700", color: "#1F2937", fontFamily: headingFont },
+    h2: { fontSize: 20, fontWeight: "600", color: "#1F2937", fontFamily: headingFont },
+    h3: { fontSize: 16, fontWeight: "600", color: "#1F2937", fontFamily: headingFont },
+    body: { fontSize: 14, fontWeight: "500", color: "#1F2937", fontFamily: bodyFont },
+    caption: { fontSize: 12, fontWeight: "400", color: "#6B7280", fontFamily: bodyFont },
   },
   elevation: {
     soft: {
@@ -71,11 +76,11 @@ export const darkTheme = {
   spacing: lightTheme.spacing,
   radius: lightTheme.radius,
   typography: {
-    h1: { fontSize: 24, fontWeight: "700", color: "#F9FAFB", fontFamily: "System" },
-    h2: { fontSize: 20, fontWeight: "600", color: "#F9FAFB", fontFamily: "System" },
-    h3: { fontSize: 16, fontWeight: "600", color: "#F9FAFB", fontFamily: "System" },
-    body: { fontSize: 14, fontWeight: "500", color: "#F9FAFB", fontFamily: "System" },
-    caption: { fontSize: 12, fontWeight: "400", color: "#9CA3AF", fontFamily: "System" },
+    h1: { fontSize: 24, fontWeight: "700", color: "#F9FAFB", fontFamily: headingFont },
+    h2: { fontSize: 20, fontWeight: "600", color: "#F9FAFB", fontFamily: headingFont },
+    h3: { fontSize: 16, fontWeight: "600", color: "#F9FAFB", fontFamily: headingFont },
+    body: { fontSize: 14, fontWeight: "500", color: "#F9FAFB", fontFamily: bodyFont },
+    caption: { fontSize: 12, fontWeight: "400", color: "#9CA3AF", fontFamily: bodyFont },
   },
   elevation: {
     soft: {
@@ -107,11 +112,11 @@ export const crimsonTheme = {
   spacing: lightTheme.spacing,
   radius: lightTheme.radius,
   typography: {
-    h1: { fontSize: 24, fontWeight: "700", color: "#2D1818", fontFamily: "System" },
-    h2: { fontSize: 20, fontWeight: "600", color: "#2D1818", fontFamily: "System" },
-    h3: { fontSize: 16, fontWeight: "600", color: "#2D1818", fontFamily: "System" },
-    body: { fontSize: 14, fontWeight: "500", color: "#2D1818", fontFamily: "System" },
-    caption: { fontSize: 12, fontWeight: "400", color: "#7A6666", fontFamily: "System" },
+    h1: { fontSize: 24, fontWeight: "700", color: "#2D1818", fontFamily: headingFont },
+    h2: { fontSize: 20, fontWeight: "600", color: "#2D1818", fontFamily: headingFont },
+    h3: { fontSize: 16, fontWeight: "600", color: "#2D1818", fontFamily: headingFont },
+    body: { fontSize: 14, fontWeight: "500", color: "#2D1818", fontFamily: bodyFont },
+    caption: { fontSize: 12, fontWeight: "400", color: "#7A6666", fontFamily: bodyFont },
   },
   elevation: lightTheme.elevation
 };

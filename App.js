@@ -39,6 +39,50 @@ export default function App() {
   const [sidebarWidthAnim] = useState(new Animated.Value(72));
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
+  // Inject Google Fonts (Outfit & Playfair Display) for Web environment
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const styleId = 'google-fonts-vastu';
+      let styleElement = document.getElementById(styleId);
+      if (!styleElement) {
+        styleElement = document.createElement('style');
+        styleElement.id = styleId;
+        styleElement.type = 'text/css';
+        styleElement.appendChild(document.createTextNode(`
+          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+          
+          /* Set base fonts on global web element wrappers */
+          body, html, input, button, select, textarea, p, span, div, a {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          }
+          
+          /* Apply Playfair Display specifically for headings, title text, and bold headers on web */
+          h1, h2, h3, h4, h5, h6, 
+          [class*="heading"], 
+          [class*="title"],
+          [style*="font-weight: 700"], 
+          [style*="font-weight: 800"], 
+          [style*="font-weight: 900"],
+          [style*="font-weight:700"], 
+          [style*="font-weight:800"], 
+          [style*="font-weight:900"] {
+            font-family: 'Playfair Display', Georgia, Cambria, "Times New Roman", Times, serif !important;
+          }
+
+          /* Prevent vector icons from being overwritten */
+          [class*="Ionicons"],
+          [style*="font-family: Ionicons"],
+          [style*="font-family:Ionicons"],
+          [style*="font-family: 'Ionicons'"],
+          [style*="font-family:'Ionicons'"] {
+            font-family: Ionicons !important;
+          }
+        `));
+        document.head.appendChild(styleElement);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     Animated.timing(sidebarWidthAnim, {
       toValue: isSidebarExpanded ? 240 : 72,

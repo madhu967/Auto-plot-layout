@@ -56,7 +56,7 @@ export default function VastuFooter({ language, theme: propTheme, activeTheme, s
         paddingTop: isMobileWeb ? '48px' : '64px',
         paddingBottom: '48px',
         boxSizing: 'border-box',
-        fontFamily: 'System, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontFamily: 'Outfit, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         ...customMarginStyle
       }}
     >

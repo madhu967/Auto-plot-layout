@@ -8,16 +8,291 @@ import {
   Dimensions, 
   Platform,
   StatusBar,
-  Image
+  Image,
+  Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import VastuFooter from './VastuFooter';
 import SmartLayoutSection from './SmartLayoutSection';
 import WorkflowCarousel from './PeopleCarousel';
 
+const ParallaxSection = ({ theme, language, isDesktop, onGetStarted, scrollY }) => {
+  const isTe = language === 'te';
+  const activeTheme = theme || {
+    colors: {
+      background: '#FAFAFA',
+      surface: '#FFFFFF',
+      text: '#111111',
+      textSecondary: '#52525B',
+      border: '#E4E4E7',
+      primary: '#070262',
+      accent: '#FBBF24',
+      primaryLight: '#EEF2F6',
+    }
+  };
+
+  const imageSource = require('../assets/home.jpg');
+  const imageUri = Image.resolveAssetSource ? Image.resolveAssetSource(imageSource).uri : (imageSource && imageSource.uri) || imageSource;
+
+  // Interpolate scrollY to translate multiple layers at different speeds!
+  const bgTranslateY = scrollY ? scrollY.interpolate({
+    inputRange: [300, 1600],
+    outputRange: [-60, 60],
+    extrapolate: 'clamp'
+  }) : 0;
+
+  const gridTranslateY = scrollY ? scrollY.interpolate({
+    inputRange: [300, 1600],
+    outputRange: [-30, 30],
+    extrapolate: 'clamp'
+  }) : 0;
+
+  const compassTranslateY = scrollY ? scrollY.interpolate({
+    inputRange: [300, 1600],
+    outputRange: [40, -40],
+    extrapolate: 'clamp'
+  }) : 0;
+
+  const cardTranslateY = scrollY ? scrollY.interpolate({
+    inputRange: [300, 1600],
+    outputRange: [15, -15],
+    extrapolate: 'clamp'
+  }) : 0;
+
+  const parallaxStyles = StyleSheet.create({
+    container: {
+      width: '100%',
+      height: isDesktop ? 420 : 360,
+      marginVertical: 28,
+      justifyContent: 'center',
+      alignItems: 'center',
+      position: 'relative',
+      overflow: 'hidden',
+      alignSelf: 'stretch',
+      borderRadius: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.15,
+      shadowRadius: 20,
+      elevation: 6,
+    },
+    bgImage: {
+      position: 'absolute',
+      top: -80,
+      left: 0,
+      right: 0,
+      bottom: -80,
+      width: '100%',
+      height: '100%',
+      minHeight: '130%',
+    },
+    overlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(7, 2, 98, 0.72)', // Branded deep blue overlay
+      zIndex: 1,
+    },
+    vastuGrid: {
+      position: 'absolute',
+      top: 20,
+      left: 20,
+      right: 20,
+      bottom: 20,
+      borderColor: 'rgba(251, 191, 36, 0.15)',
+      borderWidth: 1.5,
+      borderStyle: 'dashed',
+      borderRadius: 16,
+      zIndex: 2,
+    },
+    floatingCompass: {
+      position: 'absolute',
+      right: isDesktop ? '8%' : '4%',
+      bottom: isDesktop ? '10%' : '5%',
+      opacity: 0.15,
+      zIndex: 2,
+    },
+    content: {
+      width: '100%',
+      maxWidth: 900,
+      paddingHorizontal: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 3,
+    },
+    glassCard: {
+      width: '100%',
+      maxWidth: 680,
+      paddingHorizontal: isDesktop ? 40 : 20,
+      paddingVertical: isDesktop ? 32 : 20,
+      borderRadius: 16,
+      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+      borderColor: 'rgba(255, 255, 255, 0.15)',
+      borderWidth: 1,
+      alignItems: 'center',
+      ...Platform.select({
+        web: {
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+        }
+      }),
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.2,
+      shadowRadius: 16,
+      elevation: 4,
+    },
+    badge: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: activeTheme.colors.accent || '#FBBF24',
+      textTransform: 'uppercase',
+      letterSpacing: 1.5,
+      marginBottom: 10,
+      textAlign: 'center',
+    },
+    heading: {
+      fontSize: isDesktop ? 26 : 19,
+      fontWeight: '700',
+      color: '#FFFFFF',
+      textAlign: 'center',
+      marginBottom: 12,
+      lineHeight: isDesktop ? 34 : 25,
+    },
+    description: {
+      fontSize: 14,
+      color: 'rgba(255, 255, 255, 0.85)',
+      textAlign: 'center',
+      lineHeight: 22,
+      marginBottom: 20,
+      maxWidth: 580,
+    },
+    statsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: isDesktop ? 40 : 20,
+      marginBottom: 20,
+    },
+    statItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    statText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    button: {
+      backgroundColor: activeTheme.colors.accent || '#FBBF24',
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    buttonText: {
+      color: '#070262',
+      fontSize: 14,
+      fontWeight: '700',
+    }
+  });
+
+  return (
+    <View style={parallaxStyles.container}>
+      {/* Background Image Layer */}
+      <Animated.Image 
+        source={imageSource} 
+        style={[
+          parallaxStyles.bgImage,
+          {
+            transform: [{ translateY: bgTranslateY }]
+          }
+        ]}
+        resizeMode="cover"
+      />
+      
+      <View style={parallaxStyles.overlay} />
+
+      <Animated.View 
+        style={[
+          parallaxStyles.vastuGrid,
+          {
+            transform: [{ translateY: gridTranslateY }]
+          }
+        ]} 
+      />
+
+      <Animated.View 
+        style={[
+          parallaxStyles.floatingCompass,
+          {
+            transform: [{ translateY: compassTranslateY }, { rotate: '15deg' }]
+          }
+        ]}
+      >
+        <Ionicons name="compass" size={isDesktop ? 160 : 100} color="rgba(251, 191, 36, 0.18)" />
+      </Animated.View>
+      
+      <View style={parallaxStyles.content}>
+        <Animated.View style={[parallaxStyles.glassCard, { transform: [{ translateY: cardTranslateY }] }]}>
+          <Text style={parallaxStyles.badge}>
+            {isTe ? "వేద వాస్తు డిజైన్ ఇంజిన్" : "Vedic Vastu Design Engine"}
+          </Text>
+          <Text style={parallaxStyles.heading}>
+            {isTe 
+              ? "మీ జీవన ప్రదేశంలో సంపూర్ణ సామరస్యం మరియు శక్తి ప్రవాహం" 
+              : "Bringing Perfect Harmony & Energy Flow to Your Living Space"}
+          </Text>
+          <Text style={parallaxStyles.description}>
+            {isTe 
+              ? "నిజ-సమయంలో వాస్తు పారామితులను లెక్కించండి, ఆయం-వ్యయం నిష్పత్తులను సరిపోల్చండి మరియు తక్షణ ప్రొఫెషనల్ బ్లూప్రింట్‌లను సృష్టించండి."
+              : "Calculate precise structural Vastu parameters, optimize room placement ratios using ancient Vedic sciences, and export professional blueprint reports instantly."}
+          </Text>
+          
+          <View style={parallaxStyles.statsContainer}>
+            <View style={parallaxStyles.statItem}>
+              <Ionicons name="checkmark-circle" size={16} color={activeTheme.colors.accent || '#FBBF24'} />
+              <Text style={parallaxStyles.statText}>
+                {isTe ? "100% వాస్తు అనుకూలత" : "100% Vastu Compliant"}
+              </Text>
+            </View>
+            <View style={parallaxStyles.statItem}>
+              <Ionicons name="document-text" size={16} color={activeTheme.colors.accent || '#FBBF24'} />
+              <Text style={parallaxStyles.statText}>
+                {isTe ? "తక్షణ PDF నివేదిక" : "Instant PDF Export"}
+              </Text>
+            </View>
+          </View>
+          
+          <TouchableOpacity 
+            style={parallaxStyles.button} 
+            activeOpacity={0.8}
+            onPress={() => onGetStarted('input')}
+          >
+            <Text style={parallaxStyles.buttonText}>
+              {isTe ? "ప్లాన్ సృష్టించండి" : "Generate Floor Plan"}
+            </Text>
+            <Ionicons name="arrow-forward" size={16} color="#070262" />
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    </View>
+  );
+};
+
 export default function LandingPage({ onGetStarted, theme, renderInputs, language, scrollToInputsOnMount }) {
   const [windowWidth, setWindowWidth] = useState(Dimensions.get('window').width);
   const scrollRef = useRef(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({ window }) => {
@@ -78,11 +353,16 @@ export default function LandingPage({ onGetStarted, theme, renderInputs, languag
   };
 
   return (
-    <ScrollView 
+    <Animated.ScrollView 
       ref={scrollRef}
       style={styles.container}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
+      scrollEventThrottle={16}
+      onScroll={Animated.event(
+        [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+        { useNativeDriver: false }
+      )}
     >
       <View style={styles.heroOuter}>
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
@@ -216,6 +496,15 @@ export default function LandingPage({ onGetStarted, theme, renderInputs, languag
           )}
         </View>
 
+        {/* Parallax Section */}
+        <ParallaxSection 
+          theme={activeTheme} 
+          language={language} 
+          isDesktop={isDesktop} 
+          onGetStarted={onGetStarted} 
+          scrollY={scrollY}
+        />
+
         {/* Section Divider */}
         <View style={styles.divider} />
 
@@ -245,7 +534,7 @@ export default function LandingPage({ onGetStarted, theme, renderInputs, languag
           style={{ width: '100%', alignSelf: 'stretch', marginTop: 0 }}
         />
       )}
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 
