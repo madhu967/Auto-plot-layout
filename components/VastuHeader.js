@@ -71,7 +71,7 @@ export default function VastuHeader({
             <View style={[styles.webCenterNavContainer, { backgroundColor: capsuleBg, borderColor: capsuleBorder }]}>
               {navItems.map((item) => {
                 const isActive = activeTab === item.id;
-                const isLocked = item.id !== 'input' && !hasCalculated;
+                const isLocked = item.id !== 'home' && item.id !== 'input' && !hasCalculated;
                 
                 return (
                   <TouchableOpacity
@@ -165,7 +165,7 @@ export default function VastuHeader({
           <View style={[styles.webMobileDrawer, { backgroundColor: navBgColor, borderTopColor: navBorderColor }]}>
             {navItems.map((item) => {
               const isActive = activeTab === item.id;
-              const isLocked = item.id !== 'input' && !hasCalculated;
+              const isLocked = item.id !== 'home' && item.id !== 'input' && !hasCalculated;
               return (
                 <TouchableOpacity 
                   key={item.id} 

@@ -205,7 +205,7 @@ export default function App() {
   };
 
   const handleTabPress = (tabId) => {
-    if (tabId !== 'input' && tabId !== 'login' && !hasCalculated) {
+    if (tabId !== 'home' && tabId !== 'input' && tabId !== 'login' && !hasCalculated) {
       alert(isTe ? "దయచేసి ముందుగా ప్లాన్ లెక్కించడానికి 'Calculate & Generate' బటన్ నొక్కండి." : "Please click the 'Calculate & Generate 2D Plan' button on the input tab first.");
       return;
     }
@@ -216,6 +216,7 @@ export default function App() {
 
   // Navigation Items
   const navItems = [
+    { id: 'home', icon: 'home-outline', labelEn: 'Home', labelTe: 'హోమ్' },
     { id: 'input', icon: 'create-outline', labelEn: 'Input Details', labelTe: 'ఇన్పుట్' },
     { id: 'core', icon: 'calculator-outline', labelEn: 'Vastu Core', labelTe: 'గణాంకాలు' },
     { id: 'canvas', icon: 'map-outline', labelEn: '2D Plan', labelTe: 'ప్లాన్' },
@@ -226,47 +227,34 @@ export default function App() {
   const renderActiveComponent = () => {
     switch (activeTab) {
       case 'home':
+        return (
+          <LandingPage 
+            onGetStarted={() => {
+              setActiveTab('input');
+            }} 
+            theme={currentTheme}
+            language={language}
+            renderInputs={null}
+          />
+        );
       case 'input':
-        if (Platform.OS === 'web') {
-          return (
-            <LandingPage 
-              onGetStarted={(tabId = 'input') => {
-                setActiveTab(tabId);
-              }} 
-              theme={currentTheme}
-              language={language}
-              scrollToInputsOnMount={activeTab === 'input'}
-              renderInputs={
-                <InputModule 
-                  language={language} 
-                  state={state} 
-                  updateState={updateState} 
-                  theme={currentTheme} 
-                  setActiveTab={setActiveTab}
-                  onCalculate={() => {
-                    setHasCalculated(true);
-                    setActiveTab('canvas');
-                  }} 
-                  hideFooter={true}
-                />
-              }
-            />
-          );
-        } else {
-          return (
-            <InputModule 
-              language={language} 
-              state={state} 
-              updateState={updateState} 
-              theme={currentTheme} 
-              setActiveTab={setActiveTab}
-              onCalculate={() => {
-                setHasCalculated(true);
-                setActiveTab('canvas');
-              }} 
-            />
-          );
-        }
+        return (
+          <View style={{ flex: 1, alignItems: 'center', backgroundColor: currentTheme.colors.background }}>
+            <View style={{ width: '100%', maxWidth: Platform.OS === 'web' ? 840 : '100%', flex: 1 }}>
+              <InputModule 
+                language={language} 
+                state={state} 
+                updateState={updateState} 
+                theme={currentTheme} 
+                setActiveTab={setActiveTab}
+                onCalculate={() => {
+                  setHasCalculated(true);
+                  setActiveTab('canvas');
+                }} 
+              />
+            </View>
+          </View>
+        );
       case 'login':
         return (
           <LoginScreen 
@@ -464,7 +452,7 @@ export default function App() {
             <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
               {navItems.map((item) => {
                 const isActive = activeTab === item.id;
-                const isLocked = item.id !== 'input' && !hasCalculated;
+                const isLocked = item.id !== 'home' && item.id !== 'input' && !hasCalculated;
                 
                 // Dynamic themes styling
                 const activeBg = currentTheme.colors.primaryLight;
@@ -537,7 +525,7 @@ export default function App() {
               <View style={styles.bottomNavFlex}>
                 {navItems.map((tab) => {
                   const isActive = activeTab === tab.id;
-                  const isLocked = tab.id !== 'input' && !hasCalculated;
+                  const isLocked = tab.id !== 'home' && tab.id !== 'input' && !hasCalculated;
                   const activeColor = activeTheme === 'dark' ? '#FBBF24' : currentTheme.colors.primary;
                   return (
                     <TouchableOpacity 
@@ -562,7 +550,7 @@ export default function App() {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bottomNavScroll}>
                 {navItems.map((tab) => {
                   const isActive = activeTab === tab.id;
-                  const isLocked = tab.id !== 'input' && !hasCalculated;
+                  const isLocked = tab.id !== 'home' && tab.id !== 'input' && !hasCalculated;
                   const activeColor = activeTheme === 'dark' ? '#FBBF24' : currentTheme.colors.primary;
                   return (
                     <TouchableOpacity 
@@ -674,7 +662,7 @@ export default function App() {
             <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
               {navItems.map((item) => {
                 const isActive = activeTab === item.id;
-                const isLocked = item.id !== 'input' && !hasCalculated;
+                const isLocked = item.id !== 'home' && item.id !== 'input' && !hasCalculated;
                 
                 const activeBg = currentTheme.colors.primaryLight;
                 const activeColor = activeTheme === 'dark' ? currentTheme.colors.accent : currentTheme.colors.primary;
