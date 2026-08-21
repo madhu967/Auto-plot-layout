@@ -175,27 +175,36 @@ export default function InputModule({ language, state, updateState, theme: propT
       id: 4,
       labelEn: "Utilities",
       labelTe: "ఇతర స్థానాలు",
-      icon: "options-outline",
+      icon: "water-outline",
       imageUrl: "https://images.unsplash.com/photo-1600566752355-35792bedcfea?auto=format&fit=crop&w=600&q=80",
-      titleEn: "Utility & System Placements",
-      titleTe: "ఇతర నిర్మాణ స్థానాలు (Utilities)",
+      titleEn: "Water & Garden Utilities",
+      titleTe: "నీరు మరియు తోట అమరికలు (Utilities)",
+    },
+    {
+      id: 5,
+      labelEn: "Structures",
+      labelTe: "బయటి నిర్మాణాలు",
+      icon: "construct-outline",
+      imageUrl: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80",
+      titleEn: "Outer Structural Placements",
+      titleTe: "బయటి నిర్మాణాలు (Structures)",
     }
   ];
 
   const isTabValid = (tabId) => {
     switch (tabId) {
       case 0:
-        return !!(state.ownerName && state.ownerName.trim() !== '' && 
-               state.dob && state.dob.trim() !== '' && 
-               state.nakshatra && state.nakshatra.trim() !== '');
+        return !!(state.ownerName && String(state.ownerName).trim() !== '' && 
+               state.dob && String(state.dob).trim() !== '' && 
+               state.nakshatra && String(state.nakshatra).trim() !== '');
       case 1:
         return !!(state.siteLength && parseFloat(state.siteLength) > 0 && 
                state.siteWidth && parseFloat(state.siteWidth) > 0);
       case 2:
-        return !!(state.eastOpen && state.eastOpen.trim() !== '' && 
-               state.westOpen && state.westOpen.trim() !== '' && 
-               state.northOpen && state.northOpen.trim() !== '' && 
-               state.southOpen && state.southOpen.trim() !== '');
+        return !!(state.eastOpen !== undefined && String(state.eastOpen).trim() !== '' && 
+               state.westOpen !== undefined && String(state.westOpen).trim() !== '' && 
+               state.northOpen !== undefined && String(state.northOpen).trim() !== '' && 
+               state.southOpen !== undefined && String(state.southOpen).trim() !== '');
       case 3:
         return !!(state.customRooms && state.customRooms.length > 0);
       default:
@@ -226,6 +235,45 @@ export default function InputModule({ language, state, updateState, theme: propT
       if (matched) {
         updateState('rashi', isTe ? matched.rashiTe : matched.rashiEn);
       }
+    } else if (pickerField === 'siteFacing') {
+      updateState('siteFacing', val);
+      
+      // Auto-configure recommended Vastu directions based on facing direction
+      let recommendedDoor = "East";
+      let recommendedStairs = "Southeast";
+      let recommendedSump = "Northeast";
+      let recommendedBore = "Northeast";
+      let recommendedSeptic = "Northwest";
+      let recommendedWc = "Northwest";
+      let recommendedGarden = "Northeast";
+
+      if (val === 'East') {
+        recommendedDoor = "East";
+        recommendedStairs = "Southwest";
+        recommendedGarden = "Northeast";
+      } else if (val === 'West') {
+        recommendedDoor = "West";
+        recommendedStairs = "Southwest";
+        recommendedSeptic = "Northwest";
+        recommendedGarden = "North";
+      } else if (val === 'North') {
+        recommendedDoor = "North";
+        recommendedStairs = "Northwest";
+        recommendedGarden = "Northeast";
+      } else if (val === 'South') {
+        recommendedDoor = "South";
+        recommendedStairs = "Southwest";
+        recommendedSeptic = "Northwest";
+        recommendedGarden = "East";
+      }
+
+      updateState('mainDoorDirection', recommendedDoor);
+      updateState('stairsLocation', recommendedStairs);
+      updateState('sumpLocation', recommendedSump);
+      updateState('boreLocation', recommendedBore);
+      updateState('septicLocation', recommendedSeptic);
+      updateState('outsideBtLocation', recommendedWc);
+      updateState('gardenLocation', recommendedGarden);
     } else if (pickerField === 'roadDirection') {
       updateState('roadDirection', val);
       let suggestedDoor = "East";
@@ -333,6 +381,7 @@ export default function InputModule({ language, state, updateState, theme: propT
     boreLabel: isTe ? "బోర్-వెల్ (Borewell)" : "Borewell Location",
     septicLabel: isTe ? "సెప్టిక్ ట్యాంక్" : "Septic Tank",
     outsideBt: isTe ? "బయటి టాయిలెట్" : "Outside Toilet",
+    gardenLabel: isTe ? "తోట / ఖాళీ స్థలం (Garden)" : "Garden / Lawn Location",
     eventDate: isTe ? "గృహారంభ తేదీ" : "Groundbreaking Date"
   };
 
@@ -589,10 +638,58 @@ export default function InputModule({ language, state, updateState, theme: propT
   const renderSectionUtilities = () => (
     <View style={[styles.blueprintCard, theme.elevation.soft]}>
       <View style={styles.cardHeaderRow}>
-        <Ionicons name="options-outline" size={20} color={theme.colors.accent} />
+        <Ionicons name="water-outline" size={20} color={theme.colors.accent} />
         <View>
-          <Text style={styles.cardTitle}>{t.othersHeader}</Text>
-          <Text style={styles.cardDesc}>{t.othersDesc}</Text>
+          <Text style={styles.cardTitle}>{isTe ? "నీరు & తోట అమరికలు" : "Water & Garden Utilities"}</Text>
+          <Text style={styles.cardDesc}>{isTe ? "సంప్, బోర్ మరియు గార్డెన్ దిశలను ఎంచుకోండి." : "Select cardinal locations for sumps, borewells, and gardens."}</Text>
+        </View>
+      </View>
+
+      <View style={styles.formRow}>
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.sumpLabel}</Text>
+          <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('sumpLocation', t.sumpLabel, DIRECTION_OPTIONS)}>
+            <Text style={styles.selectValText}>{state.sumpLocation}</Text>
+            <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.boreLabel}</Text>
+          <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('boreLocation', t.boreLabel, DIRECTION_OPTIONS)}>
+            <Text style={styles.selectValText}>{state.boreLocation}</Text>
+            <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.formRow}>
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.gardenLabel}</Text>
+          <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('gardenLocation', t.gardenLabel, DIRECTION_OPTIONS)}>
+            <Text style={styles.selectValText}>{state.gardenLocation}</Text>
+            <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.eventDate}</Text>
+          <View style={styles.premiumInputGroup}>
+            <Ionicons name="calendar-outline" size={15} color={theme.colors.textSecondary} style={styles.fieldIcon} />
+            <TextInput style={styles.premiumField} value={state.eventDate} onChangeText={(val) => updateState('eventDate', val)} />
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderSectionStructures = () => (
+    <View style={[styles.blueprintCard, theme.elevation.soft]}>
+      <View style={styles.cardHeaderRow}>
+        <Ionicons name="construct-outline" size={20} color={theme.colors.accent} />
+        <View>
+          <Text style={styles.cardTitle}>{isTe ? "బయటి నిర్మాణాలు" : "Outer Structural Placements"}</Text>
+          <Text style={styles.cardDesc}>{isTe ? "మెట్లు, సెప్టిక్ ట్యాంక్ మరియు బయటి టాయిలెట్ స్థానాలు." : "Select locations for external stairs, septic tanks, and outside toilets."}</Text>
         </View>
       </View>
 
@@ -601,24 +698,6 @@ export default function InputModule({ language, state, updateState, theme: propT
           <Text style={styles.fieldLabel}>{t.stairsLabel}</Text>
           <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('stairsLocation', t.stairsLabel, DIRECTION_OPTIONS)}>
             <Text style={styles.selectValText}>{state.stairsLocation}</Text>
-            <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.formGroup, { flex: 1 }]}>
-          <Text style={styles.fieldLabel}>{t.sumpLabel}</Text>
-          <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('sumpLocation', t.sumpLabel, DIRECTION_OPTIONS)}>
-            <Text style={styles.selectValText}>{state.sumpLocation}</Text>
-            <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.formRow}>
-        <View style={[styles.formGroup, { flex: 1 }]}>
-          <Text style={styles.fieldLabel}>{t.boreLabel}</Text>
-          <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('boreLocation', t.boreLabel, DIRECTION_OPTIONS)}>
-            <Text style={styles.selectValText}>{state.boreLocation}</Text>
             <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -640,14 +719,7 @@ export default function InputModule({ language, state, updateState, theme: propT
             <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         </View>
-
-        <View style={[styles.formGroup, { flex: 1 }]}>
-          <Text style={styles.fieldLabel}>{t.eventDate}</Text>
-          <View style={styles.premiumInputGroup}>
-            <Ionicons name="calendar-outline" size={15} color={theme.colors.textSecondary} style={styles.fieldIcon} />
-            <TextInput style={styles.premiumField} value={state.eventDate} onChangeText={(val) => updateState('eventDate', val)} />
-          </View>
-        </View>
+        <View style={{ flex: 1 }} />
       </View>
     </View>
   );
@@ -738,6 +810,8 @@ export default function InputModule({ language, state, updateState, theme: propT
           return renderSectionRoomBuilder();
         case 4:
           return renderSectionUtilities();
+        case 5:
+          return renderSectionStructures();
         default:
           return null;
       }

@@ -55,7 +55,7 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
 
   // Scaled dimensions to occupy almost the entire screen (increased scale from 0.80 to 0.94)
   // On desktop view, account for the left navigation sidebar (240px) and right property panel (280px)
-  const isDesktop = SCREEN_WIDTH > 990;
+  const isDesktop = Platform.OS !== 'web' && SCREEN_WIDTH > 990;
   const availableCanvasWidth = isDesktop ? SCREEN_WIDTH - 520 - 32 : SCREEN_WIDTH - 32;
   const plotWidth = (siteW / maxDim) * (availableCanvasWidth * 0.94);
   const plotHeight = (siteL / maxDim) * (availableCanvasWidth * 0.94);
@@ -81,9 +81,39 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
   const getUtilityCoords = (location, utilityType) => {
     if (!location) return { x: 0, y: 0, w: 0, h: 0 };
     const pad = 12 * scale;
-    const size = 32 * scale;
-    const rightSide = currentPlotWidth - eastOpenPx - pad - size;
-    const bottomSide = currentPlotHeight - southOpenPx - pad - size;
+    
+    // Set realistic dimensions for each utility type in scale (architectural proportions)
+    let w = 32 * scale;
+    let h = 32 * scale;
+    
+    if (utilityType === 'stairs') {
+      // Stairs are rectangular (6ft x 14ft)
+      w = 24 * scale;
+      h = 56 * scale;
+    } else if (utilityType === 'septic') {
+      // Septic Tank (9ft x 5ft)
+      w = 36 * scale;
+      h = 20 * scale;
+    } else if (utilityType === 'sump') {
+      // Water Sump (8ft x 6ft)
+      w = 32 * scale;
+      h = 24 * scale;
+    } else if (utilityType === 'bore') {
+      // Borewell (5ft x 5ft)
+      w = 20 * scale;
+      h = 20 * scale;
+    } else if (utilityType === 'garden') {
+      // Garden band (16ft x 8ft)
+      w = 64 * scale;
+      h = 32 * scale;
+    } else if (utilityType === 'wc') {
+      // Outside WC (6ft x 4.5ft)
+      w = 24 * scale;
+      h = 18 * scale;
+    }
+    
+    const rightSide = currentPlotWidth - eastOpenPx - pad - w;
+    const bottomSide = currentPlotHeight - southOpenPx - pad - h;
 
     let coord = { x: pad, y: pad };
 
@@ -96,20 +126,25 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
     } else if (location.includes("Northwest")) {
       coord = { x: pad, y: pad };
     } else if (location.includes("North")) {
-      coord = { x: currentPlotWidth / 2 - size / 2, y: pad };
+      coord = { x: currentPlotWidth / 2 - w / 2, y: pad };
     } else if (location.includes("South")) {
-      coord = { x: currentPlotWidth / 2 - size / 2, y: bottomSide };
+      coord = { x: currentPlotWidth / 2 - w / 2, y: bottomSide };
     } else if (location.includes("East")) {
-      coord = { x: rightSide, y: currentPlotHeight / 2 - size / 2 };
+      coord = { x: rightSide, y: currentPlotHeight / 2 - h / 2 };
     } else if (location.includes("West")) {
-      coord = { x: pad, y: currentPlotHeight / 2 - size / 2 };
+      coord = { x: pad, y: currentPlotHeight / 2 - h / 2 };
     }
 
+    // Offset coordinates to prevent overlaps in the same sector
     if (utilityType === 'sump') {
-      coord.y += 38 * scale; 
+      // Shift sump down below borehole
+      coord.y += 24 * scale; 
+    } else if (utilityType === 'garden') {
+      // Shift garden down below sump
+      coord.y += 54 * scale; 
     }
 
-    return { ...coord, w: size, h: size };
+    return { ...coord, w, h };
   };
 
   // Helper to format room names cleanly inside small spaces to prevent clutter
@@ -1569,7 +1604,13 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
     return <View style={styles.verticalRuler}>{ticks}</View>;
   };
   const getUtilityCoordsOffset = (location, utilityType) => {
-    return getUtilityCoords(location, utilityType);
+    const coords = getUtilityCoords(location, utilityType);
+    return {
+      left: coords.x,
+      top: coords.y,
+      width: coords.w,
+      height: coords.h
+    };
   };
 
   const getCleanLabelText = (name, rW, rH) => {
@@ -1672,32 +1713,86 @@ export default function Canvas2D({ language, state, theme: propTheme }) {
 
                   {/* Setback Utilities */}
                   <View style={[styles.stairsBlueprintBlock, getUtilityCoordsOffset(state.stairsLocation, 'stairs')]}>
-                    <View style={styles.stairStepRow} />
-                    <View style={styles.stairStepRow} />
-                    <View style={styles.stairStepRow} />
-                    <View style={styles.stairStepRow} />
+                    <View style={styles.stairsDualFlight}>
+                      <View style={styles.stairsFlightCol}>
+                        <View style={styles.stairStepRowMini} />
+                        <View style={styles.stairStepRowMini} />
+                        <View style={styles.stairStepRowMini} />
+                        <View style={styles.stairStepRowMini} />
+                      </View>
+                      <View style={styles.stairsDividerLine} />
+                      <View style={styles.stairsFlightCol}>
+                        <View style={styles.stairStepRowMini} />
+                        <View style={styles.stairStepRowMini} />
+                        <View style={styles.stairStepRowMini} />
+                        <View style={styles.stairStepRowMini} />
+                      </View>
+                    </View>
+                    {/* Realistic blueprint climb indicator path line */}
+                    <View style={styles.stairClimbIndicatorDot} />
+                    <View style={styles.stairClimbIndicatorLineV1} />
+                    <View style={styles.stairClimbIndicatorLineH} />
+                    <View style={styles.stairClimbIndicatorLineV2} />
+                    <Ionicons name="caret-up-sharp" size={7} color="#3B82F6" style={styles.stairClimbIndicatorArrow} />
                     <Text style={styles.utilityTextTag}>{isTe ? "మెట్లు" : "STAIRS"}</Text>
                   </View>
 
                   <View style={[styles.sumpBlueprintBlock, getUtilityCoordsOffset(state.sumpLocation, 'sump')]}>
-                    <Ionicons name="water-outline" size={12} color="#0284C7" />
+                    <View style={styles.sumpBaffleLineX1} />
+                    <View style={styles.sumpBaffleLineX2} />
+                    <View style={styles.sumpInnerHatchLid}>
+                      <Ionicons name="water-sharp" size={8} color="#0284C7" />
+                    </View>
                     <Text style={styles.utilityTextTag}>{isTe ? "సంప్" : "SUMP"}</Text>
                   </View>
 
                   <View style={[styles.boreholeBlueprintBlock, getUtilityCoordsOffset(state.boreLocation, 'bore')]}>
-                    <View style={styles.boreRingOuter}><View style={styles.boreRingInner} /></View>
+                    <View style={styles.boreReticleH} />
+                    <View style={styles.boreReticleV} />
+                    <View style={styles.boreRingOuter}>
+                      <View style={styles.boreRingMiddle}>
+                        <View style={styles.boreRingInner} />
+                      </View>
+                    </View>
                     <Text style={styles.utilityTextTag}>{isTe ? "బోరు" : "BORE"}</Text>
                   </View>
 
                   <View style={[styles.septicBlueprintBlock, getUtilityCoordsOffset(state.septicLocation, 'septic')]}>
-                    <Ionicons name="construct-outline" size={10} color="#64748B" />
+                    <View style={styles.septicChamberContainer}>
+                      <View style={styles.septicChamberThird} />
+                      <View style={styles.septicChamberDivider} />
+                      <View style={styles.septicChamberThird} />
+                      <View style={styles.septicChamberDivider} />
+                      <View style={styles.septicChamberThird} />
+                    </View>
+                    <View style={styles.septicManholeLidLeft} />
+                    <View style={styles.septicManholeLidRight} />
+                    <View style={styles.septicPipeLeft} />
+                    <View style={styles.septicPipeRight} />
                     <Text style={styles.utilityTextTag}>{isTe ? "సెప్టిక్" : "SEPTIC"}</Text>
                   </View>
 
                   <View style={[styles.outsideWcBlock, getUtilityCoordsOffset(state.outsideBtLocation, 'wc')]}>
-                    <Ionicons name="water-outline" size={10} color="#64748B" />
+                    <View style={styles.outsideWcCommode}>
+                      <View style={styles.outsideWcTank} />
+                      <View style={styles.outsideWcBowl} />
+                    </View>
                     <Text style={styles.utilityTextTag}>OUT WC</Text>
                   </View>
+
+                  {state.gardenLocation && (
+                    <View style={[styles.gardenBlueprintBlock, getUtilityCoordsOffset(state.gardenLocation, 'garden')]}>
+                      <View style={styles.gardenShrubRow}>
+                        <Ionicons name="leaf-sharp" size={7} color="#15803D" />
+                        <Ionicons name="leaf-sharp" size={7} color="#15803D" style={{ marginLeft: 2 }} />
+                      </View>
+                      <View style={[styles.gardenShrubRow, { marginTop: -2 }]}>
+                        <Ionicons name="leaf-sharp" size={7} color="#15803D" style={{ marginRight: 2 }} />
+                        <Ionicons name="leaf-sharp" size={7} color="#15803D" />
+                      </View>
+                      <Text style={styles.utilityTextTag}>{isTe ? "తోట" : "GARDEN"}</Text>
+                    </View>
+                  )}
 
                   {/* Setback Dimension lines */}
                   {westO > 0 && (
@@ -2292,27 +2387,181 @@ const getStyles = (theme) => StyleSheet.create({
   stairsBlueprintBlock: {
     position: 'absolute',
     borderWidth: 1.2,
-    borderColor: '#94A3B8',
-    backgroundColor: '#F1F5F9',
+    borderColor: '#64748B',
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 12,
+    overflow: 'hidden',
   },
-  stairStepRow: {
+  stairsDualFlight: {
+    flexDirection: 'row',
     width: '100%',
-    height: '20%',
-    borderBottomWidth: 0.8,
+    height: '100%',
+    position: 'absolute',
+  },
+  stairsFlightCol: {
+    flex: 1,
+    height: '100%',
+  },
+  stairStepRowMini: {
+    width: '100%',
+    height: '25%',
+    borderBottomWidth: 0.6,
     borderBottomColor: '#CBD5E1',
+  },
+  stairsDividerLine: {
+    width: 1,
+    height: '100%',
+    backgroundColor: '#94A3B8',
+  },
+  stairClimbIndicatorDot: {
+    position: 'absolute',
+    bottom: 4,
+    left: '20%',
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#3B82F6',
+    zIndex: 14,
+  },
+  stairClimbIndicatorLineV1: {
+    position: 'absolute',
+    bottom: 4,
+    left: '23%',
+    width: 1,
+    height: '60%',
+    backgroundColor: '#3B82F6',
+    zIndex: 14,
+  },
+  stairClimbIndicatorLineH: {
+    position: 'absolute',
+    top: '36%',
+    left: '23%',
+    width: '54%',
+    height: 1,
+    backgroundColor: '#3B82F6',
+    zIndex: 14,
+  },
+  stairClimbIndicatorLineV2: {
+    position: 'absolute',
+    top: '36%',
+    right: '23%',
+    width: 1,
+    height: '40%',
+    backgroundColor: '#3B82F6',
+    zIndex: 14,
+  },
+  stairClimbIndicatorArrow: {
+    position: 'absolute',
+    bottom: 6,
+    right: '15%',
+    zIndex: 14,
+  },
+  septicChamberContainer: {
+    position: 'absolute',
+    flexDirection: 'row',
+    width: '100%',
+    height: '100%',
+    padding: 3,
+  },
+  septicChamberThird: {
+    flex: 1,
+    height: '100%',
+  },
+  septicChamberDivider: {
+    width: 0.6,
+    height: '100%',
+    backgroundColor: '#94A3B8',
+  },
+  septicManholeLidLeft: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    borderWidth: 0.8,
+    borderColor: '#64748B',
+    backgroundColor: '#E2E8F0',
+    top: '25%',
+    left: '20%',
+  },
+  septicManholeLidRight: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    borderWidth: 0.8,
+    borderColor: '#64748B',
+    backgroundColor: '#E2E8F0',
+    top: '25%',
+    right: '20%',
+  },
+  septicPipeLeft: {
+    position: 'absolute',
+    left: -2,
+    width: 3,
+    height: 4,
+    backgroundColor: '#64748B',
+    borderRadius: 1,
+    top: '40%',
+  },
+  septicPipeRight: {
+    position: 'absolute',
+    right: -2,
+    width: 3,
+    height: 4,
+    backgroundColor: '#64748B',
+    borderRadius: 1,
+    top: '40%',
+  },
+  sumpBaffleLineX1: {
+    position: 'absolute',
+    width: '100%',
+    height: 0.5,
+    backgroundColor: 'rgba(2, 132, 199, 0.15)',
+    transform: [{ rotate: '45deg' }],
+  },
+  sumpBaffleLineX2: {
+    position: 'absolute',
+    width: '100%',
+    height: 0.5,
+    backgroundColor: 'rgba(2, 132, 199, 0.15)',
+    transform: [{ rotate: '-45deg' }],
+  },
+  sumpInnerHatchLid: {
+    width: 14,
+    height: 14,
+    borderWidth: 0.8,
+    borderColor: '#0284C7',
+    borderRadius: 2,
+    backgroundColor: '#E0F2FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 13,
   },
   sumpBlueprintBlock: {
     position: 'absolute',
     borderWidth: 1.2,
     borderColor: '#0284C7',
-    backgroundColor: '#E0F2FE',
+    backgroundColor: '#F0F9FF',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 2,
     zIndex: 12,
+  },
+  gardenBlueprintBlock: {
+    position: 'absolute',
+    borderWidth: 1.2,
+    borderColor: '#15803D',
+    backgroundColor: '#F0FDF4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 2,
+    zIndex: 12,
+  },
+  gardenShrubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   boreholeBlueprintBlock: {
     position: 'absolute',
@@ -2320,26 +2569,48 @@ const getStyles = (theme) => StyleSheet.create({
     alignItems: 'center',
     zIndex: 12,
   },
+  boreReticleH: {
+    position: 'absolute',
+    width: '120%',
+    height: 0.5,
+    backgroundColor: 'rgba(2, 132, 199, 0.4)',
+  },
+  boreReticleV: {
+    position: 'absolute',
+    height: '120%',
+    width: 0.5,
+    backgroundColor: 'rgba(2, 132, 199, 0.4)',
+  },
   boreRingOuter: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 1.2,
+    borderColor: '#0284C7',
+    backgroundColor: '#F0F9FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  boreRingMiddle: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 0.8,
     borderColor: '#0284C7',
     justifyContent: 'center',
     alignItems: 'center',
   },
   boreRingInner: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: '#0284C7',
   },
   septicBlueprintBlock: {
     position: 'absolute',
     borderWidth: 1.2,
-    borderColor: '#94A3B8',
-    backgroundColor: '#F1F5F9',
+    borderColor: '#64748B',
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 2,
@@ -2348,11 +2619,35 @@ const getStyles = (theme) => StyleSheet.create({
   outsideWcBlock: {
     position: 'absolute',
     borderWidth: 1.2,
-    borderColor: '#94A3B8',
-    backgroundColor: '#F1F5F9',
+    borderColor: '#64748B',
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 2,
     zIndex: 12,
+  },
+  outsideWcCommode: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 14,
+    height: 18,
+  },
+  outsideWcTank: {
+    width: 12,
+    height: 4,
+    backgroundColor: '#CBD5E1',
+    borderWidth: 0.8,
+    borderColor: '#64748B',
+    borderRadius: 1,
+  },
+  outsideWcBowl: {
+    width: 10,
+    height: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 0.8,
+    borderColor: '#64748B',
+    borderRadius: 5,
+    marginTop: 1,
   },
   utilityTextTag: {
     fontSize: 5,

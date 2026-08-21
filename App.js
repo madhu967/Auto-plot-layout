@@ -167,6 +167,7 @@ export default function App() {
     boreLocation: "Northeast",
     septicLocation: "Northwest",
     outsideBtLocation: "Northwest",
+    gardenLocation: "Northeast",
     eventDate: "15-08-2026",
     customRooms: [
       { id: "1", name: "Pooja Room", length: "6", width: "6" },
