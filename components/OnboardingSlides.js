@@ -335,8 +335,8 @@ export default function OnboardingSlides({
     });
 
     return (
-      <Animated.View style={[styles.container, { backgroundColor: '#FFFFFF', opacity: screenFadeAnim }]}>
-        <StatusBar barStyle="dark-content" />
+      <Animated.View style={[styles.container, { backgroundColor: theme.colors.background, opacity: screenFadeAnim }]}>
+        <StatusBar barStyle={theme.colors.background === '#000000' || theme.colors.background === '#121212' ? 'light-content' : 'dark-content'} />
         <View style={styles.animationCentering}>
           
           {/* Main House Building Canvas */}
@@ -494,8 +494,8 @@ export default function OnboardingSlides({
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: 'rgba(7, 2, 98, 0.4)' }]}>
-      <StatusBar barStyle="light-content" />
+    <View style={[styles.container, { backgroundColor: theme.colors.primary ? `${theme.colors.primary}66` : 'rgba(7, 2, 98, 0.4)' }]}>
+      <StatusBar barStyle={theme.colors.background === '#000000' || theme.colors.background === '#121212' ? 'light-content' : 'dark-content'} />
       <SafeAreaView style={[
         styles.safeArea, 
         isTabletOrDesktop && styles.desktopWrapper

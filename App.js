@@ -26,7 +26,7 @@ import LandingPage from './components/LandingPage';
 
 export default function App() {
   const [language, setLanguage] = useState('en'); 
-  const [activeTheme, setActiveTheme] = useState('light'); 
+  const [activeTheme, setActiveTheme] = useState('ivory'); 
   const [activeTab, setActiveTab] = useState(Platform.OS === 'web' ? 'home' : 'input'); 
   const [hasCalculated, setHasCalculated] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState("");
@@ -590,8 +590,8 @@ export default function App() {
 
   if (onboardingState === 'slides' || onboardingState === 'transitioning') {
     return (
-      <View style={[styles.container, { backgroundColor: '#FFFFFF' }]}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
+      <View style={[styles.container, { backgroundColor: currentTheme.colors.background }]}>
+        <StatusBar barStyle={activeTheme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent={true} />
         <OnboardingSlides 
           language={language}
           setLanguage={setLanguage}
