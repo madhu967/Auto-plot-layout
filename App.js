@@ -240,13 +240,14 @@ export default function App() {
       case 'input':
         return (
           <View style={{ flex: 1, alignItems: 'center', backgroundColor: currentTheme.colors.background }}>
-            <View style={{ width: '100%', maxWidth: Platform.OS === 'web' ? 840 : '100%', flex: 1 }}>
+            <View style={{ width: '100%', maxWidth: Platform.OS === 'web' ? 1080 : '100%', flex: 1 }}>
               <InputModule 
                 language={language} 
                 state={state} 
                 updateState={updateState} 
                 theme={currentTheme} 
                 setActiveTab={setActiveTab}
+                hideFooter={true}
                 onCalculate={() => {
                   setHasCalculated(true);
                   setActiveTab('canvas');
@@ -280,6 +281,7 @@ export default function App() {
             updateState={updateState} 
             theme={currentTheme} 
             setActiveTab={setActiveTab}
+            hideFooter={true}
             onCalculate={() => {
               setHasCalculated(true);
               setActiveTab('canvas');

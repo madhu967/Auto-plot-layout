@@ -131,6 +131,87 @@ export default function InputModule({ language, state, updateState, theme: propT
   const [pickerField, setPickerField] = useState("");
   const [pickerTitle, setPickerTitle] = useState("");
 
+  const [activeInputTab, setActiveInputTab] = useState(0);
+  const windowWidth = Dimensions.get('window').width;
+
+  const inputTabs = [
+    {
+      id: 0,
+      labelEn: "Horoscope",
+      labelTe: "జాతక చక్రం",
+      icon: "person-outline",
+      imageUrl: "https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?auto=format&fit=crop&w=600&q=80",
+      titleEn: "Client Horoscope Profile",
+      titleTe: "యజమాని జాతక చక్రం",
+    },
+    {
+      id: 1,
+      labelEn: "Plot & Facing",
+      labelTe: "ప్లాట్ కొలతలు",
+      icon: "business-outline",
+      imageUrl: "https://images.unsplash.com/photo-1503387762-592dedbd82d2?auto=format&fit=crop&w=600&q=80",
+      titleEn: "Plot Geometry & Facing",
+      titleTe: "ప్లాట్ కొలతలు & దిశా నిర్ధారణ",
+    },
+    {
+      id: 2,
+      labelEn: "Setbacks",
+      labelTe: "ఖాళీ స్థలాలు",
+      icon: "resize-outline",
+      imageUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80",
+      titleEn: "Setback Corridor Margins",
+      titleTe: "నలువైపులా ఖాళీ స్థలాలు (Setbacks)",
+    },
+    {
+      id: 3,
+      labelEn: "Room Planner",
+      labelTe: "గదుల విభజన",
+      icon: "grid-outline",
+      imageUrl: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=600&q=80",
+      titleEn: "Footprint Room Planner",
+      titleTe: "భవన నిర్మాణ గదుల విభజన",
+    },
+    {
+      id: 4,
+      labelEn: "Utilities",
+      labelTe: "ఇతర స్థానాలు",
+      icon: "options-outline",
+      imageUrl: "https://images.unsplash.com/photo-1600566752355-35792bedcfea?auto=format&fit=crop&w=600&q=80",
+      titleEn: "Utility & System Placements",
+      titleTe: "ఇతర నిర్మాణ స్థానాలు (Utilities)",
+    }
+  ];
+
+  const isTabValid = (tabId) => {
+    switch (tabId) {
+      case 0:
+        return !!(state.ownerName && state.ownerName.trim() !== '' && 
+               state.dob && state.dob.trim() !== '' && 
+               state.nakshatra && state.nakshatra.trim() !== '');
+      case 1:
+        return !!(state.siteLength && parseFloat(state.siteLength) > 0 && 
+               state.siteWidth && parseFloat(state.siteWidth) > 0);
+      case 2:
+        return !!(state.eastOpen && state.eastOpen.trim() !== '' && 
+               state.westOpen && state.westOpen.trim() !== '' && 
+               state.northOpen && state.northOpen.trim() !== '' && 
+               state.southOpen && state.southOpen.trim() !== '');
+      case 3:
+        return !!(state.customRooms && state.customRooms.length > 0);
+      default:
+        return true;
+    }
+  };
+
+  const isTabUnlocked = (targetTabId) => {
+    for (let i = 0; i < targetTabId; i++) {
+      if (!isTabValid(i)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   const openPicker = (field, title, data) => {
     setPickerField(field);
     setPickerTitle(title);
@@ -263,6 +344,462 @@ export default function InputModule({ language, state, updateState, theme: propT
     { title: "Export", active: false },
   ];
 
+  const renderSectionHoroscope = () => (
+    <View style={[styles.blueprintCard, theme.elevation.soft]}>
+      <View style={styles.cardHeaderRow}>
+        <Ionicons name="person-outline" size={20} color={theme.colors.accent} />
+        <View>
+          <Text style={styles.cardTitle}>{t.ownerHeader}</Text>
+          <Text style={styles.cardDesc}>{t.ownerDesc}</Text>
+        </View>
+      </View>
+
+      <View style={styles.formGroup}>
+        <Text style={styles.fieldLabel}>{t.nameLabel}</Text>
+        <View style={styles.premiumInputGroup}>
+          <View style={styles.premiumIconBadge}>
+            <Ionicons name="person-outline" size={15} color={theme.colors.textSecondary} />
+          </View>
+          <TextInput 
+            style={styles.premiumField} 
+            value={state.ownerName}
+            onChangeText={(val) => updateState('ownerName', val)}
+          />
+        </View>
+      </View>
+
+      <View style={styles.formRow}>
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.dobLabel}</Text>
+          <View style={styles.premiumInputGroup}>
+            <View style={styles.premiumIconBadge}>
+              <Ionicons name="calendar-outline" size={15} color={theme.colors.textSecondary} />
+            </View>
+            <TextInput 
+              style={styles.premiumField} 
+              value={state.dob}
+              onChangeText={(val) => updateState('dob', val)}
+              placeholder="DD-MM-YYYY"
+            />
+          </View>
+        </View>
+
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.rashiLabel}</Text>
+          <View style={[styles.premiumInputGroup, styles.disabledField]}>
+            <View style={styles.premiumIconBadge}>
+              <Ionicons name="sparkles-outline" size={15} color={theme.colors.textSecondary} />
+            </View>
+            <TextInput 
+              style={[styles.premiumField, { color: theme.colors.textSecondary }]} 
+              value={state.rashi}
+              editable={false}
+            />
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.formGroup}>
+        <Text style={styles.fieldLabel}>{t.nakshatraLabel}</Text>
+        <TouchableOpacity 
+          style={styles.premiumSelect}
+          onPress={() => openPicker('nakshatra', t.nakshatraLabel, NAKSHATRAS.map(n => isTe ? n.nameTe : n.nameEn))}
+        >
+          <View style={styles.selectLeft}>
+            <Ionicons name="star-outline" size={15} color={theme.colors.textSecondary} />
+            <Text style={styles.selectValText}>{state.nakshatra}</Text>
+          </View>
+          <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderSectionPlotGeometry = () => (
+    <View style={[styles.blueprintCard, theme.elevation.soft]}>
+      <View style={styles.cardHeaderRow}>
+        <Ionicons name="business-outline" size={20} color={theme.colors.accent} />
+        <View>
+          <Text style={styles.cardTitle}>{t.siteHeader}</Text>
+          <Text style={styles.cardDesc}>{t.siteDesc}</Text>
+        </View>
+      </View>
+
+      <View style={styles.formRow}>
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.siteLength}</Text>
+          <View style={styles.premiumInputGroup}>
+            <View style={styles.premiumIconBadge}>
+              <Ionicons name="resize-outline" size={15} color={theme.colors.textSecondary} />
+            </View>
+            <TextInput style={styles.premiumField} keyboardType="numeric" value={state.siteLength} onChangeText={(val) => updateState('siteLength', val)} />
+          </View>
+        </View>
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.siteWidth}</Text>
+          <View style={styles.premiumInputGroup}>
+            <View style={styles.premiumIconBadge}>
+              <Ionicons name="resize-outline" size={15} color={theme.colors.textSecondary} />
+            </View>
+            <TextInput style={styles.premiumField} keyboardType="numeric" value={state.siteWidth} onChangeText={(val) => updateState('siteWidth', val)} />
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.formRow}>
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.siteFacing}</Text>
+          <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('siteFacing', t.siteFacing, FACING_OPTIONS)}>
+            <View style={styles.selectLeft}>
+              <Ionicons name="compass-outline" size={15} color={theme.colors.textSecondary} />
+              <Text style={styles.selectValText}>{state.siteFacing}</Text>
+            </View>
+            <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.roadDirection}</Text>
+          <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('roadDirection', t.roadDirection, ROAD_OPTIONS)}>
+            <View style={styles.selectLeft}>
+              <Ionicons name="navigate-outline" size={15} color={theme.colors.textSecondary} />
+              <Text style={styles.selectValText}>{state.roadDirection}</Text>
+            </View>
+            <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.formGroup}>
+        <Text style={styles.fieldLabel}>{t.mainDoor}</Text>
+        <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('mainDoorDirection', t.mainDoor, DIRECTION_OPTIONS)}>
+          <View style={styles.selectLeft}>
+            <Ionicons name="log-in-outline" size={15} color={theme.colors.textSecondary} />
+            <Text style={styles.selectValText}>{state.mainDoorDirection}</Text>
+          </View>
+          <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderSectionSetbacks = () => (
+    <View style={[styles.blueprintCard, theme.elevation.soft]}>
+      <View style={styles.cardHeaderRow}>
+        <Ionicons name="git-commit-outline" size={20} color={theme.colors.accent} />
+        <View>
+          <Text style={styles.cardTitle}>{t.openSpaceHeader}</Text>
+          <Text style={styles.cardDesc}>{t.openSpaceDesc}</Text>
+        </View>
+      </View>
+
+      <View style={styles.formRow}>
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.eastOpen}</Text>
+          <View style={styles.premiumInputGroup}>
+            <TextInput style={[styles.premiumField, { paddingLeft: 12 }]} keyboardType="numeric" value={state.eastOpen} onChangeText={(val) => updateState('eastOpen', val)} />
+          </View>
+        </View>
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.westOpen}</Text>
+          <View style={styles.premiumInputGroup}>
+            <TextInput style={[styles.premiumField, { paddingLeft: 12 }]} keyboardType="numeric" value={state.westOpen} onChangeText={(val) => updateState('westOpen', val)} />
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.formRow}>
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.northOpen}</Text>
+          <View style={styles.premiumInputGroup}>
+            <TextInput style={[styles.premiumField, { paddingLeft: 12 }]} keyboardType="numeric" value={state.northOpen} onChangeText={(val) => updateState('northOpen', val)} />
+          </View>
+        </View>
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.southOpen}</Text>
+          <View style={styles.premiumInputGroup}>
+            <TextInput style={[styles.premiumField, { paddingLeft: 12 }]} keyboardType="numeric" value={state.southOpen} onChangeText={(val) => updateState('southOpen', val)} />
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderSectionRoomBuilder = () => (
+    <View style={[styles.blueprintCard, theme.elevation.soft]}>
+      <View style={styles.cardHeaderRow}>
+        <Ionicons name="grid-outline" size={20} color={theme.colors.accent} />
+        <View>
+          <Text style={styles.cardTitle}>{t.roomBuilderHeader}</Text>
+          <Text style={styles.cardDesc}>{t.roomBuilderDesc}</Text>
+        </View>
+      </View>
+
+      {state.customRooms && state.customRooms.map((room) => {
+        const roomColor = getRoomColor(room.name);
+        const icon = getRoomIcon(room.name);
+        return (
+          <View key={room.id} style={[styles.blueprintRoomStamp, { borderLeftColor: roomColor }]}>
+            {/* Stamp-like interior title */}
+            <TouchableOpacity 
+              style={styles.stampLeftBtn} 
+              onPress={() => openPicker(`roomName_${room.id}`, isTe ? "గది ఎంచుకోండి" : "Select Room", ROOM_NAMES)}
+            >
+              <Ionicons name={icon} size={15} color={roomColor} style={{ marginRight: 6 }} />
+              <Text style={styles.stampNameText} numberOfLines={1}>{room.name}</Text>
+              <Ionicons name="chevron-down-outline" size={12} color={theme.colors.textSecondary} style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
+
+            {/* Dimensions */}
+            <View style={styles.stampDimContainer}>
+              <View style={styles.stampCoordInput}>
+                <Text style={styles.stampCoordLabel}>L</Text>
+                <TextInput
+                  style={styles.stampCoordText}
+                  keyboardType="numeric"
+                  value={room.length}
+                  onChangeText={(val) => updateRoomValue(room.id, 'length', val)}
+                />
+              </View>
+
+              <View style={styles.stampCoordInput}>
+                <Text style={styles.stampCoordLabel}>W</Text>
+                <TextInput
+                  style={styles.stampCoordText}
+                  keyboardType="numeric"
+                  value={room.width}
+                  onChangeText={(val) => updateRoomValue(room.id, 'width', val)}
+                />
+              </View>
+
+              <TouchableOpacity style={styles.stampDeleteBtn} onPress={() => deleteRoom(room.id)}>
+                <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        );
+      })}
+
+      <TouchableOpacity style={styles.fullWidthAddBtn} onPress={addRoom} activeOpacity={0.8}>
+        <Ionicons name="add-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+        <Text style={styles.fullWidthAddText}>{t.addRoomBtn}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderSectionUtilities = () => (
+    <View style={[styles.blueprintCard, theme.elevation.soft]}>
+      <View style={styles.cardHeaderRow}>
+        <Ionicons name="options-outline" size={20} color={theme.colors.accent} />
+        <View>
+          <Text style={styles.cardTitle}>{t.othersHeader}</Text>
+          <Text style={styles.cardDesc}>{t.othersDesc}</Text>
+        </View>
+      </View>
+
+      <View style={styles.formRow}>
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.stairsLabel}</Text>
+          <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('stairsLocation', t.stairsLabel, DIRECTION_OPTIONS)}>
+            <Text style={styles.selectValText}>{state.stairsLocation}</Text>
+            <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.sumpLabel}</Text>
+          <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('sumpLocation', t.sumpLabel, DIRECTION_OPTIONS)}>
+            <Text style={styles.selectValText}>{state.sumpLocation}</Text>
+            <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.formRow}>
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.boreLabel}</Text>
+          <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('boreLocation', t.boreLabel, DIRECTION_OPTIONS)}>
+            <Text style={styles.selectValText}>{state.boreLocation}</Text>
+            <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.septicLabel}</Text>
+          <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('septicLocation', t.septicLabel, DIRECTION_OPTIONS)}>
+            <Text style={styles.selectValText}>{state.septicLocation}</Text>
+            <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.formRow}>
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.outsideBt}</Text>
+          <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('outsideBtLocation', t.outsideBt, DIRECTION_OPTIONS)}>
+            <Text style={styles.selectValText}>{state.outsideBtLocation}</Text>
+            <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={styles.fieldLabel}>{t.eventDate}</Text>
+          <View style={styles.premiumInputGroup}>
+            <Ionicons name="calendar-outline" size={15} color={theme.colors.textSecondary} style={styles.fieldIcon} />
+            <TextInput style={styles.premiumField} value={state.eventDate} onChangeText={(val) => updateState('eventDate', val)} />
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderTabNavigationButtons = () => {
+    const isFirstTab = activeInputTab === 0;
+    const isLastTab = activeInputTab === inputTabs.length - 1;
+    const currentTabValid = isTabValid(activeInputTab);
+
+    return (
+      <View style={styles.wizardBtnRow}>
+        {!isFirstTab ? (
+          <TouchableOpacity 
+            style={[styles.wizardBtn, styles.wizardBtnPrev]} 
+            onPress={() => {
+              setActiveInputTab(activeInputTab - 1);
+              scrollRef.current?.scrollTo({ y: 0, animated: true });
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="arrow-back-outline" size={16} color={theme.colors.primary} style={{ marginRight: 6 }} />
+            <Text style={styles.wizardBtnPrevText}>{isTe ? "వెనుకకు" : "Previous"}</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ flex: 1 }} />
+        )}
+        
+        {!isLastTab ? (
+          <TouchableOpacity 
+            style={[
+              styles.wizardBtn, 
+              styles.wizardBtnNext,
+              !currentTabValid && styles.wizardBtnDisabled
+            ]} 
+            onPress={() => {
+              if (currentTabValid) {
+                setActiveInputTab(activeInputTab + 1);
+                scrollRef.current?.scrollTo({ y: 0, animated: true });
+              }
+            }}
+            activeOpacity={0.8}
+            disabled={!currentTabValid}
+          >
+            <Text style={styles.wizardBtnNextText}>{isTe ? "ముందుకు" : "Next"}</Text>
+            <Ionicons name="arrow-forward-outline" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity 
+            style={[
+              styles.premiumCalculateBtn, 
+              { flex: 1.5, marginTop: 0, marginBottom: 0 },
+              !currentTabValid && styles.wizardBtnDisabled
+            ]} 
+            onPress={() => {
+              if (currentTabValid) {
+                if (onCalculate) {
+                  onCalculate();
+                }
+              }
+            }}
+            activeOpacity={0.8}
+            disabled={!currentTabValid}
+          >
+            <Ionicons name="calculator-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.premiumCalculateBtnText}>
+              {isTe ? "లెక్కించి 2D ప్లాన్ చూపించు" : "CALCULATE & GENERATE 2D PLAN"}
+            </Text>
+            <Ionicons name="chevron-forward-outline" size={16} color="#FFFFFF" style={{ marginLeft: 8 }} />
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
+  const renderSelectedTabContent = () => {
+    const activeTabObj = inputTabs[activeInputTab];
+    const isWide = Platform.OS === 'web';
+
+    const cardContent = (() => {
+      switch (activeInputTab) {
+        case 0:
+          return renderSectionHoroscope();
+        case 1:
+          return renderSectionPlotGeometry();
+        case 2:
+          return renderSectionSetbacks();
+        case 3:
+          return renderSectionRoomBuilder();
+        case 4:
+          return renderSectionUtilities();
+        default:
+          return null;
+      }
+    })();
+
+    if (isWide) {
+      return (
+        <View style={styles.splitLayoutRow}>
+          {/* Left Side: Form Card */}
+          <View style={styles.splitLayoutFormCol}>
+            {cardContent}
+            <View style={{ marginTop: 16 }}>
+              {renderTabNavigationButtons()}
+            </View>
+          </View>
+          
+          {/* Right Side: High-Quality Reference Image */}
+          <View style={styles.splitLayoutImageCol}>
+            <View style={styles.splitImageCard}>
+              <Image 
+                source={{ uri: activeTabObj.imageUrl }} 
+                style={styles.splitLayoutImage} 
+                resizeMode="cover"
+              />
+              <View style={styles.splitLayoutImageOverlay}>
+                <Text style={styles.splitLayoutImageTitle}>
+                  {language === 'te' ? activeTabObj.titleTe : activeTabObj.titleEn}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      );
+    } else {
+      return (
+        <View style={styles.stackedLayoutContainer}>
+          {/* Top: Banner Image */}
+          <View style={styles.mobileBannerContainer}>
+            <Image 
+              source={{ uri: activeTabObj.imageUrl }} 
+              style={styles.mobileBannerImage} 
+              resizeMode="cover"
+            />
+            <View style={styles.mobileBannerOverlay}>
+              <Text style={styles.mobileBannerTitle}>
+                {language === 'te' ? activeTabObj.titleTe : activeTabObj.titleEn}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={{ marginTop: 12 }}>
+            {cardContent}
+          </View>
+
+          <View style={{ marginTop: 16 }}>
+            {renderTabNavigationButtons()}
+          </View>
+        </View>
+      );
+    }
+  };
+
   return (
     <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content}>
 
@@ -326,328 +863,65 @@ export default function InputModule({ language, state, updateState, theme: propT
         </Text>
       </View>
 
-      {/* SECTION 1: OWNER DETAILS */}
-      <View style={[styles.blueprintCard, theme.elevation.soft]}>
-        <View style={styles.cardHeaderRow}>
-          <Ionicons name="person-outline" size={20} color={theme.colors.accent} />
-          <View>
-            <Text style={styles.cardTitle}>{t.ownerHeader}</Text>
-            <Text style={styles.cardDesc}>{t.ownerDesc}</Text>
-          </View>
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.fieldLabel}>{t.nameLabel}</Text>
-          <View style={styles.premiumInputGroup}>
-            <View style={styles.premiumIconBadge}>
-              <Ionicons name="person-outline" size={15} color={theme.colors.textSecondary} />
-            </View>
-            <TextInput 
-              style={styles.premiumField} 
-              value={state.ownerName}
-              onChangeText={(val) => updateState('ownerName', val)}
-            />
-          </View>
-        </View>
-
-        <View style={styles.formRow}>
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.dobLabel}</Text>
-            <View style={styles.premiumInputGroup}>
-              <View style={styles.premiumIconBadge}>
-                <Ionicons name="calendar-outline" size={15} color={theme.colors.textSecondary} />
-              </View>
-              <TextInput 
-                style={styles.premiumField} 
-                value={state.dob}
-                onChangeText={(val) => updateState('dob', val)}
-                placeholder="DD-MM-YYYY"
-              />
-            </View>
-          </View>
-
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.rashiLabel}</Text>
-            <View style={[styles.premiumInputGroup, styles.disabledField]}>
-              <View style={styles.premiumIconBadge}>
-                <Ionicons name="sparkles-outline" size={15} color={theme.colors.textSecondary} />
-              </View>
-              <TextInput 
-                style={[styles.premiumField, { color: theme.colors.textSecondary }]} 
-                value={state.rashi}
-                editable={false}
-              />
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.fieldLabel}>{t.nakshatraLabel}</Text>
-          <TouchableOpacity 
-            style={styles.premiumSelect}
-            onPress={() => openPicker('nakshatra', t.nakshatraLabel, NAKSHATRAS.map(n => isTe ? n.nameTe : n.nameEn))}
-          >
-            <View style={styles.selectLeft}>
-              <Ionicons name="star-outline" size={15} color={theme.colors.textSecondary} />
-              <Text style={styles.selectValText}>{state.nakshatra}</Text>
-            </View>
-            <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* SECTION 2: SITE DETAILS */}
-      <View style={[styles.blueprintCard, theme.elevation.soft]}>
-        <View style={styles.cardHeaderRow}>
-          <Ionicons name="business-outline" size={20} color={theme.colors.accent} />
-          <View>
-            <Text style={styles.cardTitle}>{t.siteHeader}</Text>
-            <Text style={styles.cardDesc}>{t.siteDesc}</Text>
-          </View>
-        </View>
-
-        <View style={styles.formRow}>
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.siteLength}</Text>
-            <View style={styles.premiumInputGroup}>
-              <View style={styles.premiumIconBadge}>
-                <Ionicons name="resize-outline" size={15} color={theme.colors.textSecondary} />
-              </View>
-              <TextInput style={styles.premiumField} keyboardType="numeric" value={state.siteLength} onChangeText={(val) => updateState('siteLength', val)} />
-            </View>
-          </View>
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.siteWidth}</Text>
-            <View style={styles.premiumInputGroup}>
-              <View style={styles.premiumIconBadge}>
-                <Ionicons name="resize-outline" size={15} color={theme.colors.textSecondary} />
-              </View>
-              <TextInput style={styles.premiumField} keyboardType="numeric" value={state.siteWidth} onChangeText={(val) => updateState('siteWidth', val)} />
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.formRow}>
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.siteFacing}</Text>
-            <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('siteFacing', t.siteFacing, FACING_OPTIONS)}>
-              <View style={styles.selectLeft}>
-                <Ionicons name="compass-outline" size={15} color={theme.colors.textSecondary} />
-                <Text style={styles.selectValText}>{state.siteFacing}</Text>
-              </View>
-              <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.roadDirection}</Text>
-            <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('roadDirection', t.roadDirection, ROAD_OPTIONS)}>
-              <View style={styles.selectLeft}>
-                <Ionicons name="navigate-outline" size={15} color={theme.colors.textSecondary} />
-                <Text style={styles.selectValText}>{state.roadDirection}</Text>
-              </View>
-              <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.fieldLabel}>{t.mainDoor}</Text>
-          <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('mainDoorDirection', t.mainDoor, DIRECTION_OPTIONS)}>
-            <View style={styles.selectLeft}>
-              <Ionicons name="log-in-outline" size={15} color={theme.colors.textSecondary} />
-              <Text style={styles.selectValText}>{state.mainDoorDirection}</Text>
-            </View>
-            <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-
-
-      {/* SECTION 3: OPEN SPACES */}
-      <View style={[styles.blueprintCard, theme.elevation.soft]}>
-        <View style={styles.cardHeaderRow}>
-          <Ionicons name="git-commit-outline" size={20} color={theme.colors.accent} />
-          <View>
-            <Text style={styles.cardTitle}>{t.openSpaceHeader}</Text>
-            <Text style={styles.cardDesc}>{t.openSpaceDesc}</Text>
-          </View>
-        </View>
-
-        <View style={styles.formRow}>
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.eastOpen}</Text>
-            <View style={styles.premiumInputGroup}>
-              <TextInput style={[styles.premiumField, { paddingLeft: 12 }]} keyboardType="numeric" value={state.eastOpen} onChangeText={(val) => updateState('eastOpen', val)} />
-            </View>
-          </View>
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.westOpen}</Text>
-            <View style={styles.premiumInputGroup}>
-              <TextInput style={[styles.premiumField, { paddingLeft: 12 }]} keyboardType="numeric" value={state.westOpen} onChangeText={(val) => updateState('westOpen', val)} />
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.formRow}>
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.northOpen}</Text>
-            <View style={styles.premiumInputGroup}>
-              <TextInput style={[styles.premiumField, { paddingLeft: 12 }]} keyboardType="numeric" value={state.northOpen} onChangeText={(val) => updateState('northOpen', val)} />
-            </View>
-          </View>
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.southOpen}</Text>
-            <View style={styles.premiumInputGroup}>
-              <TextInput style={[styles.premiumField, { paddingLeft: 12 }]} keyboardType="numeric" value={state.southOpen} onChangeText={(val) => updateState('southOpen', val)} />
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* SECTION 4: ROOM PLANNERS */}
-      <View style={[styles.blueprintCard, theme.elevation.soft]}>
-        <View style={styles.cardHeaderRow}>
-          <Ionicons name="grid-outline" size={20} color={theme.colors.accent} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.cardTitle}>{t.roomBuilderHeader}</Text>
-            <Text style={styles.cardDesc}>{t.roomBuilderDesc}</Text>
-          </View>
-        </View>
-
-        {state.customRooms.map((room) => {
-          const roomColor = getRoomColor(room.name);
-          const icon = getRoomIcon(room.name);
-          return (
-            <View key={room.id} style={[styles.blueprintRoomStamp, { borderLeftColor: roomColor }]}>
-              {/* Stamp-like interior title */}
-              <TouchableOpacity 
-                style={styles.stampLeftBtn} 
-                onPress={() => openPicker(`roomName_${room.id}`, isTe ? "గది ఎంచుకోండి" : "Select Room", ROOM_NAMES)}
+      {/* TAB NAVIGATION BAR */}
+      <View style={styles.tabBarOuter}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={styles.tabBarScroll}
+        >
+          {inputTabs.map((tab) => {
+            const isActive = activeInputTab === tab.id;
+            const isUnlocked = isTabUnlocked(tab.id);
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                style={[
+                  styles.inputTabButton,
+                  isActive && { 
+                    backgroundColor: theme.colors.surface, 
+                    borderColor: theme.colors.accent,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 4,
+                  },
+                  !isUnlocked && { opacity: 0.4 }
+                ]}
+                onPress={() => {
+                  if (isUnlocked) {
+                    setActiveInputTab(tab.id);
+                    scrollRef.current?.scrollTo({ y: 0, animated: true });
+                  } else {
+                    alert(isTe ? "మునుపటి విభాగాలను పూర్తిగా నింపండి." : "Please fill in the preceding sections first.");
+                  }
+                }}
+                activeOpacity={0.8}
+                disabled={!isUnlocked}
               >
-                <Ionicons name={icon} size={15} color={roomColor} style={{ marginRight: 6 }} />
-                <Text style={styles.stampNameText} numberOfLines={1}>{room.name}</Text>
-                <Ionicons name="chevron-down-outline" size={12} color={theme.colors.textSecondary} style={{ marginLeft: 'auto' }} />
+                <Ionicons 
+                  name={isUnlocked ? tab.icon : "lock-closed-outline"} 
+                  size={15} 
+                  color={isActive ? theme.colors.primary : theme.colors.textSecondary} 
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={[
+                  styles.inputTabLabel,
+                  isActive && styles.inputTabLabelActive,
+                  { color: isActive ? theme.colors.primary : theme.colors.textSecondary }
+                ]}>
+                  {language === 'te' ? tab.labelTe : tab.labelEn}
+                </Text>
               </TouchableOpacity>
-
-              {/* Dimensions */}
-              <View style={styles.stampDimContainer}>
-                <View style={styles.stampCoordInput}>
-                  <Text style={styles.stampCoordLabel}>L</Text>
-                  <TextInput
-                    style={styles.stampCoordText}
-                    keyboardType="numeric"
-                    value={room.length}
-                    onChangeText={(val) => updateRoomValue(room.id, 'length', val)}
-                  />
-                </View>
-
-                <View style={styles.stampCoordInput}>
-                  <Text style={styles.stampCoordLabel}>W</Text>
-                  <TextInput
-                    style={styles.stampCoordText}
-                    keyboardType="numeric"
-                    value={room.width}
-                    onChangeText={(val) => updateRoomValue(room.id, 'width', val)}
-                  />
-                </View>
-
-                <TouchableOpacity style={styles.stampDeleteBtn} onPress={() => deleteRoom(room.id)}>
-                  <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          );
-        })}
-
-        {/* full width Add Button */}
-        <TouchableOpacity style={styles.fullWidthAddBtn} onPress={addRoom} activeOpacity={0.8}>
-          <Ionicons name="add-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-          <Text style={styles.fullWidthAddText}>{t.addRoomBtn}</Text>
-        </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
-      {/* SECTION 5: UTILITIES */}
-      <View style={[styles.blueprintCard, theme.elevation.soft]}>
-        <View style={styles.cardHeaderRow}>
-          <Ionicons name="options-outline" size={20} color={theme.colors.accent} />
-          <View>
-            <Text style={styles.cardTitle}>{t.othersHeader}</Text>
-            <Text style={styles.cardDesc}>{t.othersDesc}</Text>
-          </View>
-        </View>
-
-        <View style={styles.formRow}>
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.stairsLabel}</Text>
-            <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('stairsLocation', t.stairsLabel, DIRECTION_OPTIONS)}>
-              <Text style={styles.selectValText}>{state.stairsLocation}</Text>
-              <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.sumpLabel}</Text>
-            <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('sumpLocation', t.sumpLabel, DIRECTION_OPTIONS)}>
-              <Text style={styles.selectValText}>{state.sumpLocation}</Text>
-              <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.formRow}>
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.boreLabel}</Text>
-            <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('boreLocation', t.boreLabel, DIRECTION_OPTIONS)}>
-              <Text style={styles.selectValText}>{state.boreLocation}</Text>
-              <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.septicLabel}</Text>
-            <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('septicLocation', t.septicLabel, DIRECTION_OPTIONS)}>
-              <Text style={styles.selectValText}>{state.septicLocation}</Text>
-              <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.formRow}>
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.outsideBt}</Text>
-            <TouchableOpacity style={styles.premiumSelect} onPress={() => openPicker('outsideBtLocation', t.outsideBt, DIRECTION_OPTIONS)}>
-              <Text style={styles.selectValText}>{state.outsideBtLocation}</Text>
-              <Ionicons name="chevron-down-outline" size={14} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>{t.eventDate}</Text>
-            <View style={styles.premiumInputGroup}>
-              <Ionicons name="calendar-outline" size={15} color={theme.colors.textSecondary} style={styles.fieldIcon} />
-              <TextInput style={styles.premiumField} value={state.eventDate} onChangeText={(val) => updateState('eventDate', val)} />
-            </View>
-          </View>
-        </View>
+      {/* SELECTED TAB CONTENT AREA */}
+      <View style={styles.tabContentWrapper}>
+        {renderSelectedTabContent()}
       </View>
-
-      {/* Premium Calculate Action Button */}
-      <TouchableOpacity 
-        style={styles.premiumCalculateBtn} 
-        onPress={() => {
-          if (onCalculate) {
-            onCalculate();
-          }
-        }}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="calculator-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-        <Text style={styles.premiumCalculateBtnText}>
-          {isTe ? "లెక్కించి 2D ప్లాన్ చూపించు" : "CALCULATE & GENERATE 2D PLAN"}
-        </Text>
-        <Ionicons name="chevron-forward-outline" size={16} color="#FFFFFF" style={{ marginLeft: 8 }} />
-      </TouchableOpacity>
 
       {/* DROPDOWN PICKER */}
       <Modal visible={pickerVisible} transparent={true} animationType="fade" onRequestClose={() => setPickerVisible(false)}>
@@ -1203,5 +1477,151 @@ const getStyles = (theme) => StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '800',
     letterSpacing: 1.0,
+  },
+  tabBarOuter: {
+    marginBottom: 20,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 1.2,
+    borderColor: theme.colors.border,
+  },
+  tabBarScroll: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexGrow: 1,
+  },
+  inputTabButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1.2,
+    borderColor: 'transparent',
+  },
+  inputTabLabel: {
+    fontSize: 12.5,
+    fontWeight: '600',
+  },
+  inputTabLabelActive: {
+    fontWeight: '800',
+  },
+  tabContentWrapper: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  splitLayoutRow: {
+    flexDirection: 'row',
+    gap: 24,
+    width: '100%',
+    alignItems: 'stretch',
+  },
+  splitLayoutFormCol: {
+    flex: 1.2,
+  },
+  splitLayoutImageCol: {
+    flex: 0.8,
+  },
+  splitImageCard: {
+    borderRadius: theme.radius.card,
+    overflow: 'hidden',
+    flex: 1,
+    minHeight: 380,
+    position: 'relative',
+    backgroundColor: '#0F172A',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  splitLayoutImage: {
+    width: '100%',
+    height: '100%',
+  },
+  splitLayoutImageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(7, 2, 98, 0.65)',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  splitLayoutImageTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  stackedLayoutContainer: {
+    width: '100%',
+  },
+  mobileBannerContainer: {
+    height: 160,
+    borderRadius: theme.radius.card,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  mobileBannerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  mobileBannerOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(7, 2, 98, 0.65)',
+    padding: 12,
+  },
+  mobileBannerTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  wizardBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 16,
+    width: '100%',
+  },
+  wizardBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: theme.radius.button,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+  },
+  wizardBtnPrev: {
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+  },
+  wizardBtnPrevText: {
+    color: theme.colors.primary,
+    fontWeight: '700',
+    fontSize: 13.5,
+  },
+  wizardBtnNext: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  wizardBtnNextText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13.5,
+  },
+  wizardBtnDisabled: {
+    opacity: 0.4,
+    backgroundColor: theme.colors.textSecondary,
+    borderColor: theme.colors.textSecondary,
   }
 });
